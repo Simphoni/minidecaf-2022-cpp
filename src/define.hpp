@@ -93,6 +93,10 @@ class VarRef;
 class WhileStmt;
 class CompStmt;
 class FuncOrGlobal;
+class EquExpr;
+class NeqExpr;
+class GeqExpr;
+class GrtExpr;
 
 // the lists are not ASTNode
 typedef util::List<FuncDefn *> FuncList;        // list of Function

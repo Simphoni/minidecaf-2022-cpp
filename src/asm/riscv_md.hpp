@@ -101,6 +101,17 @@ struct RiscvInstr : public Instr {
         NOT,
         SEQZ,
         SNEZ,
+        EQU,
+        NEQ,
+        LEQ,
+        LES,
+        GEQ,
+        GRT,
+        SLT,
+        LAND,
+        LOR,
+        AND,
+        OR,
         // You could add other instructions/pseudo instructions here
     } op_code; // operation code
 

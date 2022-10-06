@@ -39,6 +39,14 @@ class SemPass2 : public ast::Visitor {
     virtual void visit(ast::IntConst *);
     virtual void visit(ast::NegExpr *);
     virtual void visit(ast::NotExpr *);
+    virtual void visit(ast::AndExpr *);
+    virtual void visit(ast::OrExpr *);
+    virtual void visit(ast::EquExpr *);
+    virtual void visit(ast::NeqExpr *);
+    virtual void visit(ast::LeqExpr *);
+    virtual void visit(ast::LesExpr *);
+    virtual void visit(ast::GeqExpr *);
+    virtual void visit(ast::GrtExpr *);
     virtual void visit(ast::BitNotExpr *);
     virtual void visit(ast::LvalueExpr *);
     virtual void visit(ast::VarRef *);
@@ -125,6 +133,62 @@ void SemPass2::visit(ast::DivExpr *e) {
     e->ATTR(type) = BaseType::Int;
 }
 void SemPass2::visit(ast::ModExpr *e) {
+    e->e1->accept(this);
+    expect(e->e1, BaseType::Int);
+    e->e2->accept(this);
+    expect(e->e2, BaseType::Int);
+    e->ATTR(type) = BaseType::Int;
+}
+void SemPass2::visit(ast::AndExpr *e) {
+    e->e1->accept(this);
+    expect(e->e1, BaseType::Int);
+    e->e2->accept(this);
+    expect(e->e2, BaseType::Int);
+    e->ATTR(type) = BaseType::Int;
+}
+void SemPass2::visit(ast::OrExpr *e) {
+    e->e1->accept(this);
+    expect(e->e1, BaseType::Int);
+    e->e2->accept(this);
+    expect(e->e2, BaseType::Int);
+    e->ATTR(type) = BaseType::Int;
+}
+void SemPass2::visit(ast::EquExpr *e) {
+    e->e1->accept(this);
+    expect(e->e1, BaseType::Int);
+    e->e2->accept(this);
+    expect(e->e2, BaseType::Int);
+    e->ATTR(type) = BaseType::Int;
+}
+void SemPass2::visit(ast::NeqExpr *e) {
+    e->e1->accept(this);
+    expect(e->e1, BaseType::Int);
+    e->e2->accept(this);
+    expect(e->e2, BaseType::Int);
+    e->ATTR(type) = BaseType::Int;
+}
+void SemPass2::visit(ast::LeqExpr *e) {
+    e->e1->accept(this);
+    expect(e->e1, BaseType::Int);
+    e->e2->accept(this);
+    expect(e->e2, BaseType::Int);
+    e->ATTR(type) = BaseType::Int;
+}
+void SemPass2::visit(ast::LesExpr *e) {
+    e->e1->accept(this);
+    expect(e->e1, BaseType::Int);
+    e->e2->accept(this);
+    expect(e->e2, BaseType::Int);
+    e->ATTR(type) = BaseType::Int;
+}
+void SemPass2::visit(ast::GeqExpr *e) {
+    e->e1->accept(this);
+    expect(e->e1, BaseType::Int);
+    e->e2->accept(this);
+    expect(e->e2, BaseType::Int);
+    e->ATTR(type) = BaseType::Int;
+}
+void SemPass2::visit(ast::GrtExpr *e) {
     e->e1->accept(this);
     expect(e->e1, BaseType::Int);
     e->e2->accept(this);

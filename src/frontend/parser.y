@@ -61,7 +61,7 @@ void scan_end();
    BREAK "break"
    EQU "=="
    NEQ "!="
-   AND "&&" 
+   AND "&&"
    OR "||"
    LEQ "<="
    GEQ ">="
@@ -191,6 +191,22 @@ Expr        : ICONST
                 { $$ = new ast::DivExpr($1, $3, POS(@2)); }
             | Expr MOD Expr
                 { $$ = new ast::ModExpr($1, $3, POS(@2)); }
+            | Expr AND Expr
+                { $$ = new ast::AndExpr($1, $3, POS(@2)); }
+            | Expr OR Expr
+                { $$ = new ast::OrExpr($1, $3, POS(@2)); }
+            | Expr EQU Expr
+                { $$ = new ast::EquExpr($1, $3, POS(@2)); }
+            | Expr NEQ Expr
+                { $$ = new ast::NeqExpr($1, $3, POS(@2)); }
+            | Expr LEQ Expr
+                { $$ = new ast::LeqExpr($1, $3, POS(@2)); }
+            | Expr LT Expr
+                { $$ = new ast::LesExpr($1, $3, POS(@2)); }
+            | Expr GEQ Expr
+                { $$ = new ast::GeqExpr($1, $3, POS(@2)); }
+            | Expr GT Expr
+                { $$ = new ast::GrtExpr($1, $3, POS(@2)); }
             | MINUS Expr  %prec NEG
                 { $$ = new ast::NegExpr($2, POS(@1)); }
             | BNOT Expr

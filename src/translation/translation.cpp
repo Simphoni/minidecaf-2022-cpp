@@ -183,6 +183,46 @@ void Translation::visit(ast::ModExpr *e) {
     e->e2->accept(this);
     e->ATTR(val) = tr->genMod(e->e1->ATTR(val), e->e2->ATTR(val));
 }
+void Translation::visit(ast::AndExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genLAnd(e->e1->ATTR(val), e->e2->ATTR(val));
+}
+void Translation::visit(ast::OrExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genLOr(e->e1->ATTR(val), e->e2->ATTR(val));
+}
+void Translation::visit(ast::EquExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genEqu(e->e1->ATTR(val), e->e2->ATTR(val));
+}
+void Translation::visit(ast::NeqExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genNeq(e->e1->ATTR(val), e->e2->ATTR(val));
+}
+void Translation::visit(ast::LeqExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genLeq(e->e1->ATTR(val), e->e2->ATTR(val));
+}
+void Translation::visit(ast::LesExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genLes(e->e1->ATTR(val), e->e2->ATTR(val));
+}
+void Translation::visit(ast::GeqExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genGeq(e->e1->ATTR(val), e->e2->ATTR(val));
+}
+void Translation::visit(ast::GrtExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genGtr(e->e1->ATTR(val), e->e2->ATTR(val));
+}
 /* Translating an ast::IntConst node.
  */
 void Translation::visit(ast::IntConst *e) {

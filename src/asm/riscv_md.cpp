@@ -245,11 +245,43 @@ void RiscvDesc::emitTac(Tac *t) {
         break;
 
     case Tac::BNOT:
-        emitUnaryTac(RiscvInstr::NOT, t);
+        emitBinaryTac(RiscvInstr::NOT, t);
         break;
 
     case Tac::LNOT:
-        emitUnaryTac(RiscvInstr::SEQZ, t);
+        emitBinaryTac(RiscvInstr::SEQZ, t);
+        break;
+
+    case Tac::EQU:
+        emitBinaryTac(RiscvInstr::EQU, t);
+        break;
+
+    case Tac::NEQ:
+        emitBinaryTac(RiscvInstr::NEQ, t);
+        break;
+
+    case Tac::LEQ:
+        emitBinaryTac(RiscvInstr::LEQ, t);
+        break;
+
+    case Tac::LES:
+        emitBinaryTac(RiscvInstr::LES, t);
+        break;
+
+    case Tac::GEQ:
+        emitBinaryTac(RiscvInstr::GEQ, t);
+        break;
+
+    case Tac::GTR:
+        emitBinaryTac(RiscvInstr::GRT, t);
+        break;
+
+    case Tac::LAND:
+        emitBinaryTac(RiscvInstr::LAND, t);
+        break;
+
+    case Tac::LOR:
+        emitBinaryTac(RiscvInstr::LOR, t);
         break;
 
     default:
@@ -305,8 +337,35 @@ void RiscvDesc::emitBinaryTac(RiscvInstr::OpCode op, Tac *t) {
     int r1 = getRegForRead(t->op1.var, 0, liveness);
     int r2 = getRegForRead(t->op2.var, r1, liveness);
     int r0 = getRegForWrite(t->op0.var, r1, r2, liveness);
-
-    addInstr(op, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
+    switch(op) {
+    case RiscvInstr::EQU:
+        addInstr(RiscvInstr::SUB, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
+        addInstr(RiscvInstr::SEQZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR, NULL);
+        break;
+    case RiscvInstr::NEQ:
+        addInstr(RiscvInstr::SUB, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
+        addInstr(RiscvInstr::SNEZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR, NULL);
+        break;
+    case RiscvInstr::LEQ:  // (a <= b) == !(b < a)
+        addInstr(RiscvInstr::SLT, _reg[r0], _reg[r2], _reg[r1], 0, EMPTY_STR, NULL);
+        addInstr(RiscvInstr::SEQZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR, NULL);
+        break;
+    case RiscvInstr::GEQ:  // (a >= b) == !(a < b)
+        addInstr(RiscvInstr::SLT, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
+        addInstr(RiscvInstr::SEQZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR, NULL);
+        break;
+    case RiscvInstr::LAND:
+        addInstr(RiscvInstr::SNEZ, _reg[r1], _reg[r1], NULL, 0, EMPTY_STR, NULL);
+        addInstr(RiscvInstr::SNEZ, _reg[r2], _reg[r2], NULL, 0, EMPTY_STR, NULL);
+        addInstr(RiscvInstr::AND, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
+        break;
+    case RiscvInstr::LOR:
+        addInstr(RiscvInstr::OR, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
+        addInstr(RiscvInstr::SNEZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR, NULL);
+        break;
+    default:
+        addInstr(op, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
+    }
 }
 
 /* Outputs a single instruction line.
@@ -516,6 +575,30 @@ void RiscvDesc::emitInstr(RiscvInstr *i) {
 
     case RiscvInstr::REM:
         oss << "rem" << i->r0->name << ", " << i->r1->name << ", " << i->r2->name;
+        break;
+
+    case RiscvInstr::SLT:
+        oss << "slt" << i->r0->name << ", " << i->r1->name << ", " << i->r2->name;
+        break;
+
+    case RiscvInstr::LES:
+        oss << "slt"  << i->r0->name << ", " << i->r1->name << ", " << i->r2->name;
+        break;
+
+    case RiscvInstr::GRT: // (a > b) == (b < a)
+        oss << "slt"  << i->r0->name << ", " << i->r2->name << ", " << i->r1->name;
+        break;
+
+    case RiscvInstr::AND: // (a > b) == (b < a)
+        oss << "and"  << i->r0->name << ", " << i->r2->name << ", " << i->r1->name;
+        break;
+
+    case RiscvInstr::OR: // (a > b) == (b < a)
+        oss << "or"  << i->r0->name << ", " << i->r2->name << ", " << i->r1->name;
+        break;
+
+    case RiscvInstr::XOR: // (a > b) == (b < a)
+        oss << "xor"  << i->r0->name << ", " << i->r2->name << ", " << i->r1->name;
         break;
 
     case RiscvInstr::BEQZ:
