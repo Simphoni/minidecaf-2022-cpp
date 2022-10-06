@@ -34,6 +34,8 @@ class SemPass2 : public ast::Visitor {
     virtual void visit(ast::AddExpr *);
     virtual void visit(ast::IntConst *);
     virtual void visit(ast::NegExpr *);
+    virtual void visit(ast::NotExpr *);
+    virtual void visit(ast::BitNotExpr *);
     virtual void visit(ast::LvalueExpr *);
     virtual void visit(ast::VarRef *);
     // Visiting statements
@@ -111,6 +113,18 @@ void SemPass2::visit(ast::NegExpr *e) {
     e->ATTR(type) = BaseType::Int;
 }
 
+void SemPass2::visit(ast::NotExpr *e) {
+    e->e->accept(this);
+    expect(e->e, BaseType::Int);
+
+    e->ATTR(type) = BaseType::Int;
+}
+void SemPass2::visit(ast::BitNotExpr *e) {
+    e->e->accept(this);
+    expect(e->e, BaseType::Int);
+
+    e->ATTR(type) = BaseType::Int;
+}
 /* Visits an ast::LvalueExpr node.
  *
  * PARAMETERS:

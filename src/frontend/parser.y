@@ -176,7 +176,7 @@ ExprStmt    : Expr SEMICOLON
                 { $$ = new ast::ExprStmt($1, POS(@1)); } 
             ;         
 Expr        : ICONST
-                { $$ = new ast::IntConst($1, POS(@1)); }            
+                { $$ = new ast::IntConst($1, POS(@1)); }
             | LPAREN Expr RPAREN
                 { $$ = $2; }
             | Expr PLUS Expr
@@ -185,6 +185,10 @@ Expr        : ICONST
                 { $$ = new ast::IfExpr($1,$3,$5,POS(@2)); }
             | MINUS Expr  %prec NEG
                 { $$ = new ast::NegExpr($2, POS(@1)); }
+            | BNOT Expr
+                { $$ = new ast::BitNotExpr($2, POS(@1)); }
+            | LNOT Expr
+                { $$ = new ast::NotExpr($2, POS(@1)); }
             ;
 
 %%
