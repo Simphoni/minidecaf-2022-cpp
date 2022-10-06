@@ -179,10 +179,18 @@ Expr        : ICONST
                 { $$ = new ast::IntConst($1, POS(@1)); }
             | LPAREN Expr RPAREN
                 { $$ = $2; }
-            | Expr PLUS Expr
-                { $$ = new ast::AddExpr($1, $3, POS(@2)); }
             | Expr QUESTION Expr COLON Expr
                 { $$ = new ast::IfExpr($1,$3,$5,POS(@2)); }
+            | Expr PLUS Expr
+                { $$ = new ast::AddExpr($1, $3, POS(@2)); }
+            | Expr MINUS Expr
+                { $$ = new ast::SubExpr($1, $3, POS(@2)); }
+            | Expr TIMES Expr
+                { $$ = new ast::MulExpr($1, $3, POS(@2)); }
+            | Expr SLASH Expr
+                { $$ = new ast::DivExpr($1, $3, POS(@2)); }
+            | Expr MOD Expr
+                { $$ = new ast::ModExpr($1, $3, POS(@2)); }
             | MINUS Expr  %prec NEG
                 { $$ = new ast::NegExpr($2, POS(@1)); }
             | BNOT Expr

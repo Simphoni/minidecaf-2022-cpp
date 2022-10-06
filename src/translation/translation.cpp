@@ -161,10 +161,28 @@ void Translation::visit(ast::ReturnStmt *s) {
 void Translation::visit(ast::AddExpr *e) {
     e->e1->accept(this);
     e->e2->accept(this);
-
     e->ATTR(val) = tr->genAdd(e->e1->ATTR(val), e->e2->ATTR(val));
 }
-
+void Translation::visit(ast::SubExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genSub(e->e1->ATTR(val), e->e2->ATTR(val));
+}
+void Translation::visit(ast::MulExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genMul(e->e1->ATTR(val), e->e2->ATTR(val));
+}
+void Translation::visit(ast::DivExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genDiv(e->e1->ATTR(val), e->e2->ATTR(val));
+}
+void Translation::visit(ast::ModExpr *e) {
+    e->e1->accept(this);
+    e->e2->accept(this);
+    e->ATTR(val) = tr->genMod(e->e1->ATTR(val), e->e2->ATTR(val));
+}
 /* Translating an ast::IntConst node.
  */
 void Translation::visit(ast::IntConst *e) {
