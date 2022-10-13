@@ -245,11 +245,11 @@ void RiscvDesc::emitTac(Tac *t) {
         break;
 
     case Tac::BNOT:
-        emitBinaryTac(RiscvInstr::NOT, t);
+        emitUnaryTac(RiscvInstr::NOT, t);
         break;
 
     case Tac::LNOT:
-        emitBinaryTac(RiscvInstr::SEQZ, t);
+        emitUnaryTac(RiscvInstr::SEQZ, t);
         break;
 
     case Tac::EQU:
