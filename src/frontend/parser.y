@@ -155,7 +155,11 @@ Stmt        : ReturnStmt {$$ = $1;}|
               BREAK SEMICOLON  
                 {$$ = new ast::BreakStmt(POS(@1));} |
               SEMICOLON
-                {$$ = new ast::EmptyStmt(POS(@1));}
+                {$$ = new ast::EmptyStmt(POS(@1));} |
+              Type IDENTIFIER SEMICOLON
+                { $$ = new ast::VarDecl($2, $1, POS(@2)); } |
+              Type IDENTIFIER ASSIGN Expr SEMICOLON
+                { $$ = new ast::VarDecl($2, $1, $4, POS(@2)); }
             ;
 CompStmt    : LBRACE StmtList RBRACE
                 {$$ = new ast::CompStmt($2,POS(@1));}
@@ -179,6 +183,10 @@ Expr        : ICONST
                 { $$ = new ast::IntConst($1, POS(@1)); }
             | LPAREN Expr RPAREN
                 { $$ = $2; }
+            | IDENTIFIER
+                { $$ = new ast::LvalueExpr(new ast::VarRef($1, POS(@1)), POS(@1)); }
+            | IDENTIFIER ASSIGN Expr
+                { $$ = new ast::AssignExpr(new ast::VarRef($1, POS(@1)), $3, POS(@2)); }
             | Expr QUESTION Expr COLON Expr
                 { $$ = new ast::IfExpr($1,$3,$5,POS(@2)); }
             | Expr PLUS Expr

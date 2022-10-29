@@ -9,7 +9,7 @@
  *  After this pass, the ATTR(sym) or ATTR(type) attributs of the visited nodes
  *  should have been set.
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #include "ast/ast.hpp"
@@ -171,6 +171,17 @@ void SemPass1::visit(ast::VarDecl *vdecl) {
     // 3. Declare the symbol in `scopes`
     // 4. Special processing for global variables
     // 5. Tag the symbol to `vdecl->ATTR(sym)`
+    Variable *v = new Variable(vdecl->name, t, vdecl->getLocation());
+    Symbol *sym = scopes->lookup(vdecl->name, vdecl->getLocation(), false);
+    if (sym != NULL)
+        issue(vdecl->getLocation(), new DeclConflictError(vdecl->name, sym));
+    else {
+        scopes->declare(v);
+        vdecl->ATTR(sym) = v;
+        if (vdecl->init != NULL)
+            vdecl->init->accept(this);
+        //if (v->isGlobalVar())
+    }
 }
 
 /* Visiting an ast::IntType node.
