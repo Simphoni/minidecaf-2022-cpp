@@ -95,6 +95,8 @@ void scan_end();
 %nterm<mind::ast::FuncDefn* > FuncDefn
 %nterm<mind::ast::Type*> Type
 %nterm<mind::ast::Statement*> Stmt  ReturnStmt ExprStmt IfStmt  CompStmt WhileStmt 
+%nterm<mind::ast::Statement*> BlockItem
+%nterm<mind::ast::Statement*> Decl
 %nterm<mind::ast::Expr*> Expr
 /*   SUBSECTION 2.2: associativeness & precedences */
 %nonassoc QUESTION
@@ -142,9 +144,13 @@ Type        : INT
                 { $$ = new ast::IntType(POS(@1)); }
 StmtList    : /* empty */
                 { $$ = new ast::StmtList(); }
-            | StmtList Stmt
+            | StmtList BlockItem
                 { $1->append($2);
                   $$ = $1; }
+            ;
+
+BlockItem   : Stmt       {$$ = $1;}|
+              Decl       {$$ = $1;}
             ;
 
 Stmt        : ReturnStmt {$$ = $1;}|
@@ -155,7 +161,9 @@ Stmt        : ReturnStmt {$$ = $1;}|
               BREAK SEMICOLON  
                 {$$ = new ast::BreakStmt(POS(@1));} |
               SEMICOLON
-                {$$ = new ast::EmptyStmt(POS(@1));} |
+                {$$ = new ast::EmptyStmt(POS(@1));}
+              ;
+Decl        :
               Type IDENTIFIER SEMICOLON
                 { $$ = new ast::VarDecl($2, $1, POS(@2)); } |
               Type IDENTIFIER ASSIGN Expr SEMICOLON

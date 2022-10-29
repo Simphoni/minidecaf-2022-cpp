@@ -291,6 +291,25 @@ void Translation::visit(ast::VarDecl *decl) {
         tr->genAssign(decl->ATTR(sym)->getTemp(), decl->init->ATTR(val));
 }
 
+void Translation::visit(ast::IfExpr *e) {
+    Label L1 = tr->getNewLabel(); // entry of the false branch
+    Label L2 = tr->getNewLabel(); // exit
+    e->ATTR(val) = tr->getNewTempI4();
+    
+    e->condition->accept(this);
+    tr->genJumpOnZero(L1, e->condition->ATTR(val));
+
+    e->true_brch->accept(this);
+    tr->genAssign(e->ATTR(val), e->true_brch->ATTR(val));
+    tr->genJump(L2); // done
+
+    tr->genMarkLabel(L1);
+    e->false_brch->accept(this);
+    tr->genAssign(e->ATTR(val), e->false_brch->ATTR(val));
+
+    tr->genMarkLabel(L2);
+}
+
 /* Translates an entire AST into a Piece list.
  *
  * PARAMETERS:

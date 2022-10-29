@@ -1,7 +1,7 @@
 /*****************************************************
  *  Definition of the two AST translation passes.
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #ifndef __MIND_TRANSLATION__INTERNAL__
@@ -50,6 +50,7 @@ class Translation : public ast::Visitor {
     virtual void visit(ast::VarDecl *);
     virtual void visit(ast::WhileStmt *);
     virtual void visit(ast::BreakStmt *);
+    virtual void visit(ast::IfExpr *);
 
     virtual ~Translation() {}
 

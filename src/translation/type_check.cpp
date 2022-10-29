@@ -7,7 +7,7 @@
  *    3. whether all the referenced symbols are well-defined. (and sets
  * ATTR(sym))
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #include "3rdparty/list.hpp"
@@ -50,6 +50,7 @@ class SemPass2 : public ast::Visitor {
     virtual void visit(ast::BitNotExpr *);
     virtual void visit(ast::LvalueExpr *);
     virtual void visit(ast::VarRef *);
+    virtual void visit(ast::IfExpr *);
     // Visiting statements
     virtual void visit(ast::VarDecl *);
     virtual void visit(ast::CompStmt *);
@@ -289,6 +290,24 @@ void SemPass2::visit(ast::AssignExpr *s) {
     }
 
     s->ATTR(type) = s->left->ATTR(type);
+}
+
+/* Visits an ast::IfExpr node.
+ *
+ * PARAMETERS:
+ *   s     - the ast::IfExpr node
+ */
+void SemPass2::visit(ast::IfExpr *s) {
+    s->condition->accept(this);
+    if (!s->condition->ATTR(type)->equal(BaseType::Int)) {
+        issue(s->condition->getLocation(), new BadTestExprError());
+        ;
+    }
+    s->true_brch->accept(this);
+    s->false_brch->accept(this);
+    if (!s->true_brch->ATTR(type)->equal(s->false_brch->ATTR(type)))
+        issue(s->true_brch->getLocation(), new BadTestExprError());
+    s->ATTR(type) = s->true_brch->ATTR(type);
 }
 
 /* Visits an ast::ExprStmt node.
