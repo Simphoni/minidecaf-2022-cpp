@@ -47,6 +47,7 @@ void mind::err::issue(Location *loc, MindError *err) {
     ebuff.add(loc, oss.str());
 
     ++num_of_errors;
+    throw;
 }
 
 /* Gets the number of errors.

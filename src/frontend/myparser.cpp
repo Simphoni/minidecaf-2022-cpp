@@ -166,6 +166,8 @@ static ast::Type* p_Type(){
   // TODO:
   // 1. Match token `Int` using lookadhead(TokenType t).
   // 2. Build a `IntType` node and return it. Refer to ast/ast.hpp for detailed information.
+  Token tok = lookahead(TokenType::INT);
+  return new ast::IntType(tok.loc);
 }
 
 static ast::StmtList* p_StmtList(){
@@ -181,8 +183,11 @@ static ast::StmtList* p_StmtList(){
     if(isFirst[SymbolType::Statement][next_token.type]){
       // TODO: Complete the action if the next is a statement.
       // Using statements->append(...)
+      statements->append(p_Statement());
     }else if(isFirst[SymbolType::VarDecl][next_token.type]){
       // TODO: Complete the action if the next is a declaration. Remeber to consume ';'.
+      statements->append(p_VarDecl());
+      lookahead(TokenType::SEMICOLON);
     }else{
       mind::err::issue(next_token.loc, new mind::err::SyntaxError("expect statement or vardecl, get" + TokenName[next_token.type]));
     }
@@ -209,8 +214,15 @@ static ast::Statement* p_Statement(){
       return p_Return();
     }
     // TODO: Complete the action to do if the next token is `If`/`LBRACE`/`SEMICOLON`
-    // else if (...) {} 
-    // else if (...) {}
+    else if (next_token.type == TokenType::IF) {
+      return p_If();
+    } 
+    else if (next_token.type == TokenType::LBRACE) {
+      return p_Block();
+    }
+    else if (next_token.type == TokenType::SEMICOLON) {
+      return new ast::EmptyStmt(lookahead().loc);
+    }
   }
   mind::err::issue(next_token.loc, new mind::err::SyntaxError("expect statement, get" + TokenName[next_token.type]));
   return NULL;
@@ -228,6 +240,9 @@ static ast::VarDecl* p_VarDecl(){
      * 3. Set the `init` of VarDecl.
      * 4. Return the VarDecl with `init` part
      **/
+    lookahead(TokenType::ASSIGN);
+    ast::Expr *init = p_Expression();
+    return new ast::VarDecl(identifier.id, type, init, type->getLocation());
   }
   return new ast::VarDecl(identifier.id,type,type->getLocation());
 }
@@ -242,7 +257,10 @@ static ast::ReturnStmt* p_Return(){
    * 3. Match token 'Semi'.
    * 4. Build a 'Return' node and return it.
    **/
-
+  Token tmp = lookahead(TokenType::RETURN);
+  ast::Expr *retval = p_Expression();
+  lookahead(TokenType::SEMICOLON);
+  return new ast::ReturnStmt(retval, tmp.loc);
 }
 
 static ast::IfStmt* p_If(){
@@ -261,7 +279,19 @@ static ast::IfStmt* p_If(){
    * hint: use an `EmptyStmt` for an empty else branch instead of NULL
    * hint: to check the type of next_token without consuming it, access next_token.type directly
    **/
-
+  Token tmp = lookahead(TokenType::IF);
+  lookahead(TokenType::LPAREN);
+  ast::Expr *cond = p_Expression();
+  if (cond == NULL) return NULL;
+  lookahead(TokenType::RPAREN);
+  ast::Statement *br_true = p_Statement(), *br_false;
+  if (next_token.type == TokenType::ELSE) {
+    lookahead();
+    br_false = p_Statement();
+  } else {
+    br_false = new ast::EmptyStmt(tmp.loc); // MIND!
+  }
+  return new ast::IfStmt(cond, br_true, br_false, tmp.loc);
 }
 
 static ast::Expr* p_Expression(){
@@ -269,6 +299,7 @@ static ast::Expr* p_Expression(){
 
   // TODO:
   // 1. Parse assignment and return it.
+  return p_Assignment();
 }
 
 static ast::Expr* p_Assignment(){
@@ -286,8 +317,11 @@ static ast::Expr* p_Assignment(){
    * Hint: `AssignStmt` node need a `VarRef` node as its child, 
    * but p_Conditional() returns a `LValueExpr` node here,
    * hence some conversion is needed (`Expr` to `LvalueExpr` to `VarRef`)  
-   * condider dynamic_cast<> here
+   * consider dynamic_cast<> here
    **/
+    Token tmp = lookahead(TokenType::ASSIGN);
+    ast::Expr *rhs = p_Expression();
+    return new ast::AssignExpr(dynamic_cast<ast::VarRef*>(dynamic_cast<ast::LvalueExpr*>(node)->lvalue), rhs, tmp.loc);
   }
   return node;
 }
@@ -337,6 +371,13 @@ static ast::Expr* p_LogicalAnd(){
 
   // TODO:
   // 1. Refer to the implementation of 'p_LogicalOr'. 
+  ast::Expr* node = p_Equality();
+  while (next_token.type == TokenType::AND) {
+    Token And = lookahead();
+    ast::Expr *operand2 = p_Equality();
+    node = new ast::AndExpr(node, operand2, And.loc);
+  }
+  return node;
 }
 
 static ast::Expr* p_Equality(){
@@ -380,6 +421,32 @@ static ast::Expr* p_Relational(){
 
   // TODO:
   // 1. Refer to the implementation of 'p_Additive'.
+  ast::Expr* node = p_Additive();
+  while(next_token.type == TokenType::LT || next_token.type == TokenType::GT
+     || next_token.type == TokenType::LEQ || next_token.type == TokenType::GEQ){
+ 
+    Token operation = lookahead();
+    ast::Expr* operand2 = p_Additive(); 
+ 
+    switch(operation.type){
+      case TokenType::LT:
+        node = new ast::LesExpr(node,operand2,operation.loc);
+        break;
+      case TokenType::GT:
+        node = new ast::GrtExpr(node,operand2,operation.loc);
+        break;
+      case TokenType::LEQ:
+        node = new ast::LeqExpr(node,operand2,operation.loc);
+        break;
+      case TokenType::GEQ:
+        node = new ast::GeqExpr(node,operand2,operation.loc);
+        break;
+      default:
+        break;
+    }
+ 
+  }
+  return node;
 }
 
 static ast::Expr* p_Additive(){
