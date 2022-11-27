@@ -73,6 +73,7 @@ IDENTIFIER    ([A-Za-z][_0-9A-Za-z]*)
 <<EOF>> { return yy::parser::make_END (loc); }
 
 "int"        { return yy::parser::make_INT  (loc);         }
+"for"        { return yy::parser::make_FOR  (loc);         }
 "return"     { return yy::parser::make_RETURN  (loc);      }
 "="          { return yy::parser::make_ASSIGN  (loc);      }
 ":"          { return yy::parser::make_COLON  (loc);       }
@@ -99,8 +100,10 @@ IDENTIFIER    ([A-Za-z][_0-9A-Za-z]*)
 "!"          { return yy::parser::make_LNOT  (loc);        }
 "if"         { return yy::parser::make_IF  (loc);          }
 "else"       { return yy::parser::make_ELSE  (loc);        }
+"do"         { return yy::parser::make_DO  (loc);          }
 "while"      { return yy::parser::make_WHILE  (loc);       }
 "break"      { return yy::parser::make_BREAK (loc);        }
+"continue"   { return yy::parser::make_CONTINUE (loc);     }
 
 {INTEGER}     {return make_ICONST(yytext, loc);}
 

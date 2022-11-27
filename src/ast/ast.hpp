@@ -3,7 +3,7 @@
  *
  *  Please read the description of each class for details.
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #ifndef __MIND_AST__
@@ -39,10 +39,13 @@ class ASTNode {
         BREAK_STMT,
         CALL_EXPR,
         COMP_STMT,
+        CONT_STMT,
         DIV_EXPR,
+        DOWHILE_STMT,
         EQU_EXPR,
         EMPTY_STMT,
         EXPR_STMT,
+        FOR_STMT,
         FUNC_DEFN,
         GEQ_EXPR,
         GRT_EXPR,
@@ -207,8 +210,8 @@ class FuncDefn : public ASTNode {
     Type *ret_type;
     VarList *formals;
     StmtList *stmts;
-    bool forward_decl; // is this FuncDefn a forward declaration or full
-                       // definition?
+    bool forward_decl;         // is this FuncDefn a forward declaration or full
+                               // definition?
     symb::Function *ATTR(sym); // for semantic analysis
 };
 class FuncOrGlobal {
@@ -304,6 +307,33 @@ class WhileStmt : public Statement {
     Expr *condition;
     Statement *loop_body;
 };
+
+class DoWhileStmt : public Statement {
+  public:
+    DoWhileStmt(Statement *loop_body, Expr *cond, Location *l);
+
+    virtual void accept(Visitor *);
+    virtual void dumpTo(std::ostream &);
+
+  public:
+    Expr *condition;
+    Statement *loop_body;
+};
+
+class ForStmt : public Statement {
+  public:
+    ForStmt(Statement *init, Expr *cond, Expr *rear, Statement *loop_body,
+            Location *l);
+
+    virtual void accept(Visitor *);
+    virtual void dumpTo(std::ostream &);
+
+  public:
+    Expr *condition, *rear;
+    Statement *init, *loop_body;
+    scope::Scope *ATTR(scope);
+};
+
 /* Node representing an comp statement.
  *
  * SERIALIZED FORM:

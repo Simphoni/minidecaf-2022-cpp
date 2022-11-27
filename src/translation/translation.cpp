@@ -23,6 +23,7 @@ using namespace mind::symb;
 using namespace mind::tac;
 using namespace mind::type;
 using namespace mind::assembly;
+using namespace mind::err;
 
 /* Constructor.
  *
@@ -38,6 +39,7 @@ Translation::Translation(tac::TransHelper *helper) {
 /* Translating an ast::Program node.
  */
 void Translation::visit(ast::Program *p) {
+    loop_level = 0;
     for (auto it = p->func_and_globals->begin();
          it != p->func_and_globals->end(); ++it)
         (*it)->accept(this);
@@ -94,7 +96,8 @@ void Translation::visit(ast::AssignExpr *s) {
     s->left->accept(this);
     s->e->accept(this);
     // (ME)NOTICE: for pointers, this should be different
-    tr->genAssign(((ast::VarRef *)s->left)->ATTR(sym)->getTemp(), s->e->ATTR(val));
+    tr->genAssign(((ast::VarRef *)s->left)->ATTR(sym)->getTemp(),
+                  s->e->ATTR(val));
     s->ATTR(val) = ((ast::VarRef *)s->left)->ATTR(sym)->getTemp();
 }
 
@@ -124,11 +127,15 @@ void Translation::visit(ast::IfStmt *s) {
 /* Translating an ast::WhileStmt node.
  */
 void Translation::visit(ast::WhileStmt *s) {
+    // L1..cond..body..L2
     Label L1 = tr->getNewLabel();
     Label L2 = tr->getNewLabel();
 
     Label old_break = current_break_label;
     current_break_label = L2;
+    Label old_continue = current_continue_label;
+    current_continue_label = L1;
+    loop_level++;
 
     tr->genMarkLabel(L1);
     s->condition->accept(this);
@@ -140,11 +147,80 @@ void Translation::visit(ast::WhileStmt *s) {
     tr->genMarkLabel(L2);
 
     current_break_label = old_break;
+    current_continue_label = old_continue;
+    loop_level--;
 }
 
+void Translation::visit(ast::DoWhileStmt *s) {
+    // L1..body..L3..cond..L2
+    Label L1 = tr->getNewLabel();
+    Label L2 = tr->getNewLabel();
+    Label L3 = tr->getNewLabel();
+
+    Label old_break = current_break_label;
+    current_break_label = L2;
+    Label old_continue = current_continue_label;
+    current_continue_label = L3;
+    loop_level++;
+    // all break statements inside the loop body goes to L2
+    // all continue statements inside the loop body goes to L3
+    tr->genMarkLabel(L1);
+    s->loop_body->accept(this);
+    tr->genMarkLabel(L3);
+    s->condition->accept(this);
+    tr->genJumpOnZero(L2, s->condition->ATTR(val));
+    tr->genJump(L1);
+    tr->genMarkLabel(L2);
+
+    current_break_label = old_break;
+    current_continue_label = old_continue;
+    loop_level--;
+}
+
+void Translation::visit(ast::ForStmt *s) {
+    // init...L1..cond..body..L3..rear..L2
+    Label L1 = tr->getNewLabel();
+    Label L2 = tr->getNewLabel();
+    Label L3 = tr->getNewLabel();
+
+    Label old_break = current_break_label;
+    current_break_label = L2;
+    Label old_continue = current_continue_label;
+    current_continue_label = L3;
+    loop_level++;
+
+    if (s->init != NULL)
+        s->init->accept(this);
+    tr->genMarkLabel(L1);
+    if (s->condition != NULL) {
+        s->condition->accept(this);
+        tr->genJumpOnZero(L2, s->condition->ATTR(val));
+    }
+    s->loop_body->accept(this);
+    tr->genMarkLabel(L3);
+    if (s->rear != NULL)
+        s->rear->accept(this);
+    tr->genJump(L1);
+    tr->genMarkLabel(L2);
+
+    current_break_label = old_break;
+    current_continue_label = old_continue;
+    loop_level--;
+}
 /* Translating an ast::BreakStmt node.
  */
-void Translation::visit(ast::BreakStmt *s) { tr->genJump(current_break_label); }
+void Translation::visit(ast::BreakStmt *s) {
+    tr->genJump(current_break_label);
+    if (loop_level == 0) {
+        issue(s->getLocation(), new SyntaxError("break"));
+    }
+}
+void Translation::visit(ast::ContStmt *s) {
+    tr->genJump(current_continue_label);
+    if (loop_level == 0) {
+        issue(s->getLocation(), new SyntaxError("continue"));
+    }
+}
 
 /* Translating an ast::CompStmt node.
  */
@@ -295,7 +371,7 @@ void Translation::visit(ast::IfExpr *e) {
     Label L1 = tr->getNewLabel(); // entry of the false branch
     Label L2 = tr->getNewLabel(); // exit
     e->ATTR(val) = tr->getNewTempI4();
-    
+
     e->condition->accept(this);
     tr->genJumpOnZero(L1, e->condition->ATTR(val));
 

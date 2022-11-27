@@ -74,3 +74,32 @@ void BreakStmt::dumpTo(std::ostream &os) {
     newLine(os);
     decIndent(os);
 }
+
+ContStmt::ContStmt(Location *l) { setBasicInfo(CONT_STMT, l); }
+
+void ContStmt::accept(Visitor *v) { v->visit(this); }
+
+void ContStmt::dumpTo(std::ostream &os) {
+    ASTNode::dumpTo(os);
+    newLine(os);
+    decIndent(os);
+}
+
+DoWhileStmt::DoWhileStmt(Statement *body, Expr *cond, Location *l) {
+    setBasicInfo(DOWHILE_STMT, l);
+
+    loop_body = body;
+    condition = cond;
+}
+
+void DoWhileStmt::accept(Visitor *v) { v->visit(this); }
+
+void DoWhileStmt::dumpTo(std::ostream &os) {
+    ASTNode::dumpTo(os);
+    newLine(os);
+    os << loop_body;
+
+    newLine(os);
+    os << condition << ")";
+    decIndent(os);
+}

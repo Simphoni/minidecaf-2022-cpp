@@ -59,6 +59,7 @@ void scan_end();
    WHILE "while"
    FOR "for"
    BREAK "break"
+   CONTINUE "continue"
    EQU "=="
    NEQ "!="
    AND "&&"
@@ -95,8 +96,7 @@ void scan_end();
 %nterm<mind::ast::FuncDefn* > FuncDefn
 %nterm<mind::ast::Type*> Type
 %nterm<mind::ast::Statement*> Stmt  ReturnStmt ExprStmt IfStmt  CompStmt WhileStmt 
-%nterm<mind::ast::Statement*> BlockItem
-%nterm<mind::ast::Statement*> Decl
+%nterm<mind::ast::Statement*> BlockItem Decl DoWhileStmt ForStmt
 %nterm<mind::ast::Expr*> Expr
 /*   SUBSECTION 2.2: associativeness & precedences */
 %nonassoc QUESTION
@@ -153,16 +153,20 @@ BlockItem   : Stmt       {$$ = $1;}|
               Decl       {$$ = $1;}
             ;
 
-Stmt        : ReturnStmt {$$ = $1;}|
-              ExprStmt   {$$ = $1;}|
-              IfStmt     {$$ = $1;}|
-              WhileStmt  {$$ = $1;}|
-              CompStmt   {$$ = $1;}|
+Stmt        : ReturnStmt  {$$ = $1;}|
+              ExprStmt    {$$ = $1;}|
+              IfStmt      {$$ = $1;}|
+              WhileStmt   {$$ = $1;}|
+              CompStmt    {$$ = $1;}|
+              DoWhileStmt {$$ = $1;}|
+              ForStmt     {$$ = $1;}|
               BREAK SEMICOLON  
                 {$$ = new ast::BreakStmt(POS(@1));} |
+              CONTINUE SEMICOLON  
+                {$$ = new ast::ContStmt(POS(@1));} |
               SEMICOLON
                 {$$ = new ast::EmptyStmt(POS(@1));}
-              ;
+            ;
 Decl        :
               Type IDENTIFIER SEMICOLON
                 { $$ = new ast::VarDecl($2, $1, POS(@2)); } |
@@ -175,12 +179,39 @@ CompStmt    : LBRACE StmtList RBRACE
 WhileStmt   : WHILE LPAREN Expr RPAREN Stmt
                 { $$ = new ast::WhileStmt($3, $5, POS(@1)); }
             ;
+DoWhileStmt : DO Stmt WHILE LPAREN Expr RPAREN SEMICOLON
+                { $$ = new ast::DoWhileStmt($2, $5, POS(@1)); }
+            ;
+ForStmt     : FOR LPAREN Expr SEMICOLON Expr SEMICOLON Expr RPAREN Stmt
+                { $$ = new ast::ForStmt(new ast::ExprStmt($3, POS(@3)), $5, $7, $9, POS(@1)); } |
+              FOR LPAREN SEMICOLON Expr SEMICOLON Expr RPAREN Stmt
+                { $$ = new ast::ForStmt(NULL, $4, $6, $8, POS(@1)); } |
+              FOR LPAREN Expr SEMICOLON SEMICOLON Expr RPAREN Stmt
+                { $$ = new ast::ForStmt(new ast::ExprStmt($3, POS(@3)), NULL, $6, $8, POS(@1)); } |
+              FOR LPAREN Expr SEMICOLON Expr SEMICOLON RPAREN Stmt
+                { $$ = new ast::ForStmt(new ast::ExprStmt($3, POS(@3)), $5, NULL, $8, POS(@1)); } |
+              FOR LPAREN Expr SEMICOLON SEMICOLON RPAREN Stmt
+                { $$ = new ast::ForStmt(new ast::ExprStmt($3, POS(@3)), NULL, NULL, $7, POS(@1)); } |
+              FOR LPAREN SEMICOLON Expr SEMICOLON RPAREN Stmt
+                { $$ = new ast::ForStmt(NULL, $4, NULL, $7, POS(@1)); } |
+              FOR LPAREN SEMICOLON SEMICOLON Expr RPAREN Stmt
+                { $$ = new ast::ForStmt(NULL, NULL, $5, $7, POS(@1)); } |
+              FOR LPAREN SEMICOLON SEMICOLON RPAREN Stmt
+                { $$ = new ast::ForStmt(NULL, NULL, NULL, $6, POS(@1)); } |
+              FOR LPAREN Decl Expr SEMICOLON Expr RPAREN Stmt
+                { $$ = new ast::ForStmt($3, $4, $6, $8, POS(@1)); } |
+              FOR LPAREN Decl SEMICOLON Expr RPAREN Stmt
+                { $$ = new ast::ForStmt($3, NULL, $5, $7, POS(@1)); } |
+              FOR LPAREN Decl Expr SEMICOLON RPAREN Stmt
+                { $$ = new ast::ForStmt($3, $4, NULL, $7, POS(@1)); } |
+              FOR LPAREN Decl SEMICOLON RPAREN Stmt
+                { $$ = new ast::ForStmt($3, NULL, NULL, $6, POS(@1)); }
+            ;
 IfStmt      : IF LPAREN Expr RPAREN Stmt
                 { $$ = new ast::IfStmt($3, $5, new ast::EmptyStmt(POS(@5)), POS(@1)); }
             | IF LPAREN Expr RPAREN Stmt ELSE Stmt
                 { $$ = new ast::IfStmt($3, $5, $7, POS(@1)); }
             ;
-
 ReturnStmt  : RETURN Expr SEMICOLON
                 { $$ = new ast::ReturnStmt($2, POS(@1)); }
             ;
