@@ -197,8 +197,6 @@ void BasicBlock::analyzeLiveness(void) {
         case Tac::NEG:
         case Tac::LNOT:
         case Tac::BNOT:
-        case Tac::PARAM:
-        case Tac::LINK:
             if (NULL != t_next->op0.var)
                 t->LiveOut->remove(t_next->op0.var);
             t->LiveOut->add(t_next->op1.var);
@@ -224,19 +222,14 @@ void BasicBlock::analyzeLiveness(void) {
             break;
 
         case Tac::CALL:
-            if (NULL != t_next->op0.var)
-                t->LiveOut->remove(t_next->op0.var);
-            for (auto it = t_next->FuncParams->begin(); it != t_next->FuncParams->end();
-                 it++)
-                t->LiveOut->add(*it);
-            break;
-
+        case Tac::LINK:
         case Tac::POP:
         case Tac::LOAD_IMM4:
             if (NULL != t_next->op0.var)
                 t->LiveOut->remove(t_next->op0.var);
             break;
 
+        case Tac::PARAM:
         case Tac::PUSH:
             t->LiveOut->add(t_next->op0.var);
             break;

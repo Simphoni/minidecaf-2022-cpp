@@ -441,16 +441,14 @@ void TransHelper::genJumpOnZero(Label dest, Temp cond) {
  */
 void TransHelper::genReturn(Temp value) { chainUp(Tac::Return(value)); }
 
-Temp TransHelper::genCall(Label label, util::Vector<Temp> *param_list) {
+Temp TransHelper::genCall(Label label) {
     Temp c = getNewTempI4();
-    chainUp(Tac::Call(c, label, param_list));
+    chainUp(Tac::Call(c, label));
     return c;
 }
 
-Temp TransHelper::genParam(Temp value) {
-    Temp param = getNewTempI4();
-    chainUp(Tac::Param(param, value));
-    return param;
+void TransHelper::genParam(Temp value, int regnum) {
+    chainUp(Tac::Param(value, regnum));
 }
 
 void TransHelper::genLinkRegToTemp(Temp param, int regnum) {

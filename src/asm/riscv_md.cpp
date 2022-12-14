@@ -290,8 +290,12 @@ void RiscvDesc::emitTac(Tac *t) {
         emitBinaryTac(RiscvInstr::LOR, t);
         break;
 
+    case Tac::PUSH:
+        emitPushTac(t);
+        break;
+
     case Tac::PARAM:
-        emitParamTac(t);
+        passParamReg(t, t->op1.ival);
         break;
 
     case Tac::LINK:
@@ -307,32 +311,16 @@ void RiscvDesc::emitTac(Tac *t) {
     }
 }
 
+void RiscvDesc::emitPushTac(Tac *t) {
+    int r0 = getRegForRead(t->op0.var, 0, t->LiveOut);
+    addInstr(RiscvInstr::PUSH, _reg[r0], NULL, NULL, 0, EMPTY_STR, NULL);
+}
+
 void RiscvDesc::emitCallTac(Tac *t) {
     static int caller_saved_regs[7] = {/* RA is saved by prolog */
                                        /* T0-T2 */ 5,  6,  7,
                                        /* T3-T6 */ 28, 29, 30, 31};
-    int nparams = t->FuncParams->size();
     auto RealLiveOut = t->LiveOut->clone();
-    for (int i = 0; i < nparams; i++)
-        t->LiveOut->add((*t->FuncParams)[i]);
-    for (int i = nparams - 1; i >= 8; i--) {
-        int r0 = getRegForRead((*t->FuncParams)[i], 0, t->LiveOut);
-        addInstr(RiscvInstr::PUSH, _reg[r0], NULL, NULL, 0, EMPTY_STR, NULL);
-    }
-    for (int i = 0; i < 8 && i < nparams; i++) {
-        std::ostringstream oss;
-        oss << "prepare param " << i;
-        spillReg(RiscvReg::A0 + i, t->LiveOut);
-        int r1 = lookupReg((*t->FuncParams)[i]);
-        if (r1 < 0) { // load from stack
-            addInstr(RiscvInstr::LW, _reg[RiscvReg::A0 + i], _reg[RiscvReg::FP],
-                     NULL, (*t->FuncParams)[i]->offset, EMPTY_STR,
-                     oss.str().c_str());
-        } else if (RiscvReg::A0 + i != r1) {
-            addInstr(RiscvInstr::MOVE, _reg[RiscvReg::A0 + i], _reg[r1], NULL,
-                     0, EMPTY_STR, oss.str().c_str());
-        }
-    }
     // caller saved registers
     // notice that we call after PARAMS, for the registers needed for PARAMS
     // may not be in LiveOut, and can be annihilated after this operation
@@ -351,12 +339,6 @@ void RiscvDesc::emitCallTac(Tac *t) {
     if (r0 != RiscvReg::A0)
         addInstr(RiscvInstr::MOVE, _reg[r0], _reg[RiscvReg::A0], NULL, 0,
                  EMPTY_STR, NULL);
-}
-
-void RiscvDesc::emitParamTac(Tac *t) {
-    int r1 = getRegForRead(t->op1.var, 0, t->LiveOut);
-    int r0 = getRegForWrite(t->op0.var, r1, 0, t->LiveOut);
-    addInstr(RiscvInstr::MOVE, _reg[r0], _reg[r1], NULL, 0, EMPTY_STR, NULL);
 }
 
 /* Translates a LoadImm4 TAC into Riscv instructions.
@@ -495,13 +477,13 @@ void RiscvDesc::emit(std::string label, const char *body, const char *comment) {
  *   cnt   - reg offset A0 + cnt
  */
 void RiscvDesc::passParamReg(Tac *t, int cnt) {
-    t->LiveOut->add(t->op0.var);
+    auto v = t->op0.var;
+    t->LiveOut->add(v);
     std::ostringstream oss;
     // RISC-V use a0-a7 to pass the first 8 parameters, so it's ok to do so.
     spillReg(RiscvReg::A0 + cnt, t->LiveOut);
-    int i = lookupReg(t->op0.var);
+    int i = lookupReg(v);
     if (i < 0) {
-        auto v = t->op0.var;
         RiscvReg *base = _reg[RiscvReg::FP];
         oss << "load " << v << " from (" << base->name
             << (v->offset < 0 ? "" : "+") << v->offset << ") into "

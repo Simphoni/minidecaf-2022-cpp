@@ -245,12 +245,18 @@ void Translation::visit(ast::ReturnStmt *s) {
 
 void Translation::visit(ast::CallExpr *e) {
     util::List<ast::Expr *> *arguments = e->params;
-    util::Vector<Temp> *param_temp_list = new util::Vector<Temp>();
+    std::vector<Temp> param_temp_list;
     for (auto ait = arguments->begin(); ait != arguments->end(); ait++) {
         (*ait)->accept(this);
-        param_temp_list->push_back(tr->genParam((*ait)->ATTR(val)));
+        param_temp_list.push_back((*ait)->ATTR(val));
     }
-    e->ATTR(val) = tr->genCall(e->ATTR(sym)->getEntryLabel(), param_temp_list);
+    for (int i = param_temp_list.size() - 1; i >= 8; i--)
+        tr->genPush(param_temp_list[i]);
+    int order = 0;
+    for (auto ait = arguments->begin(); ait != arguments->end() && order < 8;
+         ait++)
+        tr->genParam((*ait)->ATTR(val), order++);
+    e->ATTR(val) = tr->genCall(e->ATTR(sym)->getEntryLabel());
 }
 
 /* Translating an ast::AddExpr node.

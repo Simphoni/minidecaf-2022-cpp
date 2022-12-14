@@ -566,12 +566,11 @@ Tac *Tac::Return(Temp value) {
     return t;
 }
 
-Tac *Tac::Param(Temp param, Temp value) {
-    REQUIRE_I4(param);
+Tac *Tac::Param(Temp value, int regnum) {
     REQUIRE_I4(value);
     Tac *t = allocateNewTac(Tac::PARAM);
-    t->op0.var = param;
-    t->op1.var = value;
+    t->op0.var = value;
+    t->op1.ival = regnum;
     return t;
 }
 
@@ -599,12 +598,11 @@ Tac *Tac::Mark(Label label) {
     return t;
 }
 
-Tac *Tac::Call(Temp dest, Label label, util::Vector<Temp> *param_list) {
+Tac *Tac::Call(Temp dest, Label label) {
     REQUIRE_I4(dest);
     Tac *t = allocateNewTac(Tac::CALL);
     t->op0.var = dest;
     t->op1.label = label;
-    t->FuncParams = param_list;
     return t;
 }
 
@@ -773,7 +771,7 @@ void Tac::dump(std::ostream &os) {
         break;
 
     case PARAM:
-        os << "    " << op0.var << " <- " << op1.var;
+        os << "    PARAM  " << op0.var;
         break;
 
     case LINK:

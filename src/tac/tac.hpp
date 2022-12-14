@@ -122,7 +122,6 @@ struct Tac {
 
     int bb_num;               // basic block number, for dataflow analysis
     util::Set<Temp> *LiveOut; // for dataflow analysis: LiveOut set of this TAC
-    util::Vector<Temp> *FuncParams; // for BasicBlock analysis
     int mark;                    // auxiliary: do anything you want
 
     // static creation methods for TACs. (see: TransHelper)
@@ -151,8 +150,8 @@ struct Tac {
     static Tac *Return(Temp value);
     static Tac *Mark(Label label);
     static Tac *Memo(const char *);
-    static Tac *Call(Temp dest, Label label, util::Vector<Temp> *);
-    static Tac *Param(Temp, Temp);
+    static Tac *Call(Temp dest, Label label);
+    static Tac *Param(Temp, int);
     static Tac *Link(Temp, int);
 
     // dumps a single tac node to some output stream
