@@ -7,6 +7,7 @@
 #define __MIND_TAC__
 
 #include "3rdparty/set.hpp"
+#include "3rdparty/vector.hpp"
 #include "define.hpp"
 
 #include <iostream>
@@ -32,7 +33,7 @@ typedef struct TempObject {
     int id;               // id of a Temp (Temp1, ... , TempN)
     int size;             // size of a Temp (e.g. size = 4 for int32)
     bool is_offset_fixed; // whether the Temp has been allocated on the stack
-    int offset;           // the offset on the stack (relative to fp, see the example)
+    int offset; // the offset on the stack (relative to fp, see the example)
 } * Temp;
 
 /** Representation of a Label.
@@ -44,7 +45,7 @@ typedef struct LabelObject {
     int id;               // id of a Label
     std::string str_form; // string format of a Label
     bool target;          // whether it is a target (eg. JUMP <Label>)
-    Tac *where;           // The TAC which marks this Label (for dataflow analysis)
+    Tac *where; // The TAC which marks this Label (for dataflow analysis)
 } * Label;
 
 /** Representation of a function.
@@ -53,21 +54,22 @@ typedef struct LabelObject {
  *        Don't use "FunctyObject" directly. Please use "Functy".
  */
 typedef struct FunctyObject {
-    Label entry;         // entry label of the function
-    Tac *code;           // tac chain of the function
+    Label entry; // entry label of the function
+    Tac *code;   // tac chain of the function
 } * Functy;
 
 /** Three address code.
  *
  *  NOTE: We use "struct" instead of "class" here for your convenience.
- * 
+ *
  */
 struct Tac {
     // Kinds of TACs.
     /**
      * If you want add your own Tac, specify the Tac type here,
-     * and then design a static creation method for your Tac like we have provided in the framework
-    */
+     * and then design a static creation method for your Tac like we have
+     * provided in the framework
+     */
     typedef enum {
         ASSIGN,
         ADD,
@@ -93,7 +95,9 @@ struct Tac {
         POP,
         RETURN,
         LOAD_IMM4,
-        MEMO
+        MEMO,
+        PARAM,
+        CALL
     } Kind;
 
     // Operand type
@@ -115,9 +119,10 @@ struct Tac {
     Tac *prev; // the previous tac
     Tac *next; // the next tac
 
-    int bb_num; // basic block number, for dataflow analysis
+    int bb_num;               // basic block number, for dataflow analysis
     util::Set<Temp> *LiveOut; // for dataflow analysis: LiveOut set of this TAC
-    int mark;   // auxiliary: do anything you want
+    util::Vector<Temp> *FuncParams; // for BasicBlock analysis
+    int mark;                    // auxiliary: do anything you want
 
     // static creation methods for TACs. (see: TransHelper)
     static Tac *Add(Temp dest, Temp op1, Temp op2);
@@ -145,6 +150,8 @@ struct Tac {
     static Tac *Return(Temp value);
     static Tac *Mark(Label label);
     static Tac *Memo(const char *);
+    static Tac *Param(Temp, Temp);
+    static Tac *Call(Temp dest, Label label, util::Vector<Temp> *);
 
     // dumps a single tac node to some output stream
     void dump(std::ostream &);
@@ -152,12 +159,12 @@ struct Tac {
 
 /** Representation of the whole program.
  *
- *  NOTE: 
+ *  NOTE:
  *  A Program is modeled as a piece of functions (functy).
  *  Of course, if you want support more program structures,
  *  you can modify the `as` part.
- * 
- *  for example, add `vtable` to support class definition 
+ *
+ *  for example, add `vtable` to support class definition
  *  (oops, it is beyond our requirements, only for your own interests)
  */
 struct Piece {

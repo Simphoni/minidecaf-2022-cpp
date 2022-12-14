@@ -91,13 +91,14 @@ void scan_end();
 %token <std::string> IDENTIFIER "identifier"
 %token<int> ICONST "iconst"
 %nterm<mind::ast::StmtList*> StmtList
-%nterm<mind::ast::VarList* > FormalList 
+%nterm<mind::ast::VarList* > FormalList FormalListRecurse
 %nterm<mind::ast::Program* > Program FoDList
 %nterm<mind::ast::FuncDefn* > FuncDefn
 %nterm<mind::ast::Type*> Type
 %nterm<mind::ast::Statement*> Stmt  ReturnStmt ExprStmt IfStmt  CompStmt WhileStmt 
-%nterm<mind::ast::Statement*> BlockItem Decl DoWhileStmt ForStmt
+%nterm<mind::ast::Statement*> BlockItem DeclStmt DoWhileStmt ForStmt
 %nterm<mind::ast::Expr*> Expr
+%nterm<mind::ast::ExprList*> ExprList ExprListRecurse
 /*   SUBSECTION 2.2: associativeness & precedences */
 %nonassoc QUESTION
 %left     OR
@@ -131,26 +132,43 @@ FoDList :
                   $$ = $1; }
                 }
 
-FuncDefn : Type IDENTIFIER LPAREN FormalList RPAREN LBRACE StmtList RBRACE {
-              $$ = new ast::FuncDefn($2,$1,$4,$7,POS(@1));
-          } |
-          Type IDENTIFIER LPAREN FormalList RPAREN SEMICOLON{
-              $$ = new ast::FuncDefn($2,$1,$4,new ast::EmptyStmt(POS(@6)),POS(@1));
-          }
-FormalList :  /* EMPTY */
-            {$$ = new ast::VarList();} 
+FuncDefn : Type IDENTIFIER LPAREN FormalList RPAREN LBRACE StmtList RBRACE 
+            { $$ = new ast::FuncDefn($2,$1,$4,$7,POS(@1)); }
+         | Type IDENTIFIER LPAREN FormalList RPAREN SEMICOLON
+            { $$ = new ast::FuncDefn($2,$1,$4,new ast::EmptyStmt(POS(@6)),POS(@1)); }
+          ;
+
+FormalListRecurse   :   /* EMPTY */
+                      { $$ = new ast::VarList(); }
+                    | FormalListRecurse Type IDENTIFIER COMMA
+                      { $1->append(new ast::VarDecl($3, $2, POS(@3))); $$ = $1; }
+                    ;
+ExprListRecurse : /* EMPTY */
+                    { $$ = new ast::ExprList(); }
+                | ExprListRecurse Expr COMMA
+                    { $1->append($2); $$ = $1; }
+                ;
+FormalList  :  /* EMPTY */
+                { $$ = new ast::VarList(); }
+            | FormalListRecurse Type IDENTIFIER
+                { $1->append(new ast::VarDecl($3, $2, POS(@3))); $$ = $1; }
+            ;
+ExprList    :  /* EMPTY */
+                { $$ = new ast::ExprList(); }
+            | ExprListRecurse Expr
+                { $1->append($2); $$ = $1; }
+            ;
 
 Type        : INT
                 { $$ = new ast::IntType(POS(@1)); }
 StmtList    : /* empty */
                 { $$ = new ast::StmtList(); }
             | StmtList BlockItem
-                { $1->append($2);
-                  $$ = $1; }
+                { $1->append($2); $$ = $1; }
             ;
 
 BlockItem   : Stmt       {$$ = $1;}|
-              Decl       {$$ = $1;}
+              DeclStmt   {$$ = $1;}
             ;
 
 Stmt        : ReturnStmt  {$$ = $1;}|
@@ -167,7 +185,7 @@ Stmt        : ReturnStmt  {$$ = $1;}|
               SEMICOLON
                 {$$ = new ast::EmptyStmt(POS(@1));}
             ;
-Decl        :
+DeclStmt    :
               Type IDENTIFIER SEMICOLON
                 { $$ = new ast::VarDecl($2, $1, POS(@2)); } |
               Type IDENTIFIER ASSIGN Expr SEMICOLON
@@ -198,13 +216,13 @@ ForStmt     : FOR LPAREN Expr SEMICOLON Expr SEMICOLON Expr RPAREN Stmt
                 { $$ = new ast::ForStmt(NULL, NULL, $5, $7, POS(@1)); } |
               FOR LPAREN SEMICOLON SEMICOLON RPAREN Stmt
                 { $$ = new ast::ForStmt(NULL, NULL, NULL, $6, POS(@1)); } |
-              FOR LPAREN Decl Expr SEMICOLON Expr RPAREN Stmt
+              FOR LPAREN DeclStmt Expr SEMICOLON Expr RPAREN Stmt
                 { $$ = new ast::ForStmt($3, $4, $6, $8, POS(@1)); } |
-              FOR LPAREN Decl SEMICOLON Expr RPAREN Stmt
+              FOR LPAREN DeclStmt SEMICOLON Expr RPAREN Stmt
                 { $$ = new ast::ForStmt($3, NULL, $5, $7, POS(@1)); } |
-              FOR LPAREN Decl Expr SEMICOLON RPAREN Stmt
+              FOR LPAREN DeclStmt Expr SEMICOLON RPAREN Stmt
                 { $$ = new ast::ForStmt($3, $4, NULL, $7, POS(@1)); } |
-              FOR LPAREN Decl SEMICOLON RPAREN Stmt
+              FOR LPAREN DeclStmt SEMICOLON RPAREN Stmt
                 { $$ = new ast::ForStmt($3, NULL, NULL, $6, POS(@1)); }
             ;
 IfStmt      : IF LPAREN Expr RPAREN Stmt
@@ -260,6 +278,8 @@ Expr        : ICONST
                 { $$ = new ast::BitNotExpr($2, POS(@1)); }
             | LNOT Expr
                 { $$ = new ast::NotExpr($2, POS(@1)); }
+            | IDENTIFIER LPAREN ExprList RPAREN
+                { $$ = new ast::CallExpr($1, $3, POS(@1)); }
             ;
 
 %%

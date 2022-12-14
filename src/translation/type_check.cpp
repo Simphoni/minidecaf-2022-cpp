@@ -51,6 +51,7 @@ class SemPass2 : public ast::Visitor {
     virtual void visit(ast::LvalueExpr *);
     virtual void visit(ast::VarRef *);
     virtual void visit(ast::IfExpr *);
+    virtual void visit(ast::CallExpr *);
     // Visiting statements
     virtual void visit(ast::VarDecl *);
     virtual void visit(ast::CompStmt *);
@@ -91,6 +92,39 @@ static bool isErrorType(Type *t) { return t->equal(BaseType::Error); }
 static void expect(ast::Expr *e, Type *t) {
     if (!e->ATTR(type)->equal(t) && !isErrorType(e->ATTR(type))) {
         issue(e->getLocation(), new UnexpectedTypeError(t, e->ATTR(type)));
+    }
+}
+
+void SemPass2::visit(ast::CallExpr *e) {
+    Symbol *f = scopes->lookup(e->funct, e->getLocation());
+    if (NULL == f) {
+        issue(e->getLocation(), new SymbolNotFoundError(e->funct));
+        goto issue_error_funct_unmatch;
+    } else if (!f->isFunction()) {
+        issue(e->getLocation(), new NotMethodError(f));
+        goto issue_error_funct_unmatch;
+    } else {
+        e->ATTR(type) = ((Function *)f)->getResultType();
+        e->ATTR(sym) = (Function *)f;
+        goto call_functype_match;
+    }
+issue_error_funct_unmatch:
+    e->ATTR(type) = BaseType::Error;
+    e->ATTR(sym) = NULL;
+    return;
+call_functype_match:
+    if (e->ATTR(sym)->getType()->numOfParameters() != e->params->length())
+        issue(e->getLocation(), new BadArgCountError(e->ATTR(sym)));
+    util::List<type::Type *> *params = e->ATTR(sym)->getType()->getArgList();
+    util::List<ast::Expr *> *arguments = e->params;
+    int nparams = params->length();
+    auto pit = params->begin();
+    auto ait = arguments->begin();
+    for (int i = 0; i < nparams; ++pit, ++ait, ++i) {
+        (*ait)->accept(this);
+        if (!(*pit)->equal((*ait)->ATTR(type)))
+            issue((*ait)->getLocation(),
+                  new UnexpectedTypeError(*pit, (*ait)->ATTR(type)));
     }
 }
 

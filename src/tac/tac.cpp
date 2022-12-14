@@ -1,7 +1,7 @@
 /*****************************************************
  *  Operations of Tac's and data objects.
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #include "tac/tac.hpp"
@@ -566,6 +566,15 @@ Tac *Tac::Return(Temp value) {
     return t;
 }
 
+Tac *Tac::Param(Temp param, Temp value) {
+    REQUIRE_I4(param);
+    REQUIRE_I4(value);
+    Tac *t = allocateNewTac(Tac::PARAM);
+    t->op0.var = param;
+    t->op1.var = value;
+    return t;
+}
+
 /* Creates a Mark tac.
  *
  * NOTE:
@@ -580,6 +589,15 @@ Tac *Tac::Mark(Label label) {
     t->op0.label = label;
     label->where = t;
 
+    return t;
+}
+
+Tac *Tac::Call(Temp dest, Label label, util::Vector<Temp> *param_list) {
+    REQUIRE_I4(dest);
+    Tac *t = allocateNewTac(Tac::CALL);
+    t->op0.var = dest;
+    t->op1.label = label;
+    t->FuncParams = param_list;
     return t;
 }
 
@@ -745,6 +763,14 @@ void Tac::dump(std::ostream &os) {
 
     case LOAD_IMM4:
         os << "    " << op0.var << " <- " << op1.ival;
+        break;
+
+    case PARAM:
+        os << "    " << op0.var << " <- " << op1.var;
+        break;
+
+    case CALL:
+        os << "    " << op0.var << " <- call " << op1.label;
         break;
 
     default:

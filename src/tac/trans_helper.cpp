@@ -128,7 +128,7 @@ Label TransHelper::getNewEntryLabel(Function *fn) {
  */
 Tac *TransHelper::memoOf(Function *f) {
     std::ostringstream oss;
-    
+
     int length = oss.str().size();
     char *memo = new char[length + 1];
     oss.str().copy(memo, length);
@@ -440,6 +440,18 @@ void TransHelper::genJumpOnZero(Label dest, Temp cond) {
  *   this operation also terminates the current function execution
  */
 void TransHelper::genReturn(Temp value) { chainUp(Tac::Return(value)); }
+
+Temp TransHelper::genCall(Label label, util::Vector<Temp> *param_list) {
+    Temp c = getNewTempI4();
+    chainUp(Tac::Call(c, label, param_list));
+    return c;
+}
+
+Temp TransHelper::genParam(Temp value) {
+    Temp param = getNewTempI4();
+    chainUp(Tac::Param(param, value));
+    return param;
+}
 
 /* Appends an Assign tac node to the current list.
  *

@@ -11,6 +11,7 @@
 
 #include "define.hpp"
 #include "tac/tac.hpp"
+#include "3rdparty/vector.hpp"
 
 namespace mind {
 
@@ -65,6 +66,8 @@ class TransHelper {
     void genJump(Label);
     void genJumpOnZero(Label, Temp);
     void genReturn(Temp);
+    Temp genParam(Temp);
+    Temp genCall(Label, util::Vector<Temp> *);
     // Miscellaneous
     void genAssign(Temp, Temp);
     Temp genLoadImm4(int);

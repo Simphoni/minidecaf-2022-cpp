@@ -437,6 +437,18 @@ class PointerRef : public Lvalue {
     symb::Variable *ATTR(sym); // for tac generation
 };
 
+class CallExpr : public Expr {
+  public:
+    CallExpr(std::string f, ExprList *p, Location *l);
+    virtual void accept(Visitor *);
+    virtual void dumpTo(std::ostream &);
+
+  public:
+    std::string funct;
+    ExprList *params;
+    symb::Function *ATTR(sym); // for tac generation
+};
+
 /* Node representing an expression of lvalue.
  *
  * SERIALIZED FORM:

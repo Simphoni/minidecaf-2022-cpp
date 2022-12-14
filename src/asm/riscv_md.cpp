@@ -47,7 +47,7 @@ RiscvDesc::RiscvDesc(void) {
     // {GLOBAL, LOCAL, PARAMETER}
     // Actually, we only use the parameter offset counter,
     // other two options are remained for extension
-    int start[3] = {0, 0, 0}; 
+    int start[3] = {0, 0, 0};
     int dir[3] = {+1, -1, +1};
     _counter = new OffsetCounter(start, dir);
 
@@ -124,6 +124,7 @@ void RiscvDesc::emitPieces(scope::GlobalScope *gscope, Piece *ps,
         case Piece::FUNCTY:
             emitFuncty(ps->as.functy);
             break;
+            // MYTODO: global var
 
         default:
             mind_assert(false); // unreachable
@@ -213,7 +214,8 @@ RiscvInstr *RiscvDesc::prepareSingleChain(BasicBlock *b, FlowGraph *g) {
 void RiscvDesc::emitTac(Tac *t) {
     std::ostringstream oss;
     t->dump(oss);
-    addInstr(RiscvInstr::COMMENT, NULL, NULL, NULL, 0, EMPTY_STR, oss.str().c_str() + 4);
+    addInstr(RiscvInstr::COMMENT, NULL, NULL, NULL, 0, EMPTY_STR,
+             oss.str().c_str() + 4);
 
     switch (t->op_code) {
     case Tac::LOAD_IMM4:
@@ -227,7 +229,7 @@ void RiscvDesc::emitTac(Tac *t) {
     case Tac::NEG:
         emitUnaryTac(RiscvInstr::NEG, t);
         break;
-    
+
     case Tac::ADD:
         emitBinaryTac(RiscvInstr::ADD, t);
         break;
@@ -288,9 +290,51 @@ void RiscvDesc::emitTac(Tac *t) {
         emitBinaryTac(RiscvInstr::LOR, t);
         break;
 
+    case Tac::PARAM:
+        emitParamTac(t);
+        break;
+
+    case Tac::CALL:
+        emitCallTac(t);
+        break;
+
     default:
         mind_assert(false); // should not appear inside a basic block
     }
+}
+
+void RiscvDesc::emitCallTac(Tac *t) {
+    int nparams = t->FuncParams->size();
+    for (int i = 0; i < nparams; i++)
+        t->LiveOut->add((*t->FuncParams)[i]);
+    for (int i = 0; i < 8 && i < nparams; i++) {
+        spillReg(RiscvReg::A0 + i, t->LiveOut);
+        int j = lookupReg((*t->FuncParams)[i]);
+        if (i < 0) { // load from stack
+            addInstr(RiscvInstr::LW, _reg[RiscvReg::A0 + i], _reg[RiscvReg::FP],
+                     NULL, (*t->FuncParams)[i]->offset, EMPTY_STR, NULL);
+        } else {
+            addInstr(RiscvInstr::MOVE, _reg[RiscvReg::A0 + i], _reg[j], NULL, 0,
+                     EMPTY_STR, NULL);
+        }
+    }
+    for (int i = nparams - 1; i >= 8; i--) {
+        int r0 = getRegForRead((*t->FuncParams)[i], 0, t->LiveOut);
+        addInstr(RiscvInstr::PUSH, _reg[r0], NULL, NULL, 0, EMPTY_STR, NULL);
+    }
+    addInstr(RiscvInstr::CALL, NULL, NULL, NULL, 0,
+             std::string("_") + t->op1.label->str_form, NULL);
+    int r0 = lookupReg(t->op0.var);
+    if (r0 < 0)
+        r0 = getRegForWrite(t->op0.var, RiscvReg::A0, 0, t->LiveOut);
+    addInstr(RiscvInstr::MOVE, _reg[r0], _reg[RiscvReg::A0], NULL, 0, EMPTY_STR,
+             NULL);
+}
+
+void RiscvDesc::emitParamTac(Tac *t) {
+    int r1 = getRegForRead(t->op1.var, 0, t->LiveOut);
+    int r0 = getRegForWrite(t->op0.var, r1, 0, t->LiveOut);
+    addInstr(RiscvInstr::MOVE, _reg[r0], _reg[r1], NULL, 0, EMPTY_STR, NULL);
 }
 
 /* Translates a LoadImm4 TAC into Riscv instructions.
@@ -335,37 +379,50 @@ void RiscvDesc::emitBinaryTac(RiscvInstr::OpCode op, Tac *t) {
     if (!t->LiveOut->contains(t->op0.var))
         return;
 
-    Set<Temp>* liveness = t->LiveOut->clone();
+    Set<Temp> *liveness = t->LiveOut->clone();
     liveness->add(t->op1.var);
     liveness->add(t->op2.var);
     int r1 = getRegForRead(t->op1.var, 0, liveness);
     int r2 = getRegForRead(t->op2.var, r1, liveness);
     int r0 = getRegForWrite(t->op0.var, r1, r2, liveness);
-    switch(op) {
+    switch (op) {
     case RiscvInstr::EQU:
-        addInstr(RiscvInstr::SUB, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
-        addInstr(RiscvInstr::SEQZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR, NULL);
+        addInstr(RiscvInstr::SUB, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR,
+                 NULL);
+        addInstr(RiscvInstr::SEQZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR,
+                 NULL);
         break;
     case RiscvInstr::NEQ:
-        addInstr(RiscvInstr::SUB, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
-        addInstr(RiscvInstr::SNEZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR, NULL);
+        addInstr(RiscvInstr::SUB, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR,
+                 NULL);
+        addInstr(RiscvInstr::SNEZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR,
+                 NULL);
         break;
-    case RiscvInstr::LEQ:  // (a <= b) == !(b < a)
-        addInstr(RiscvInstr::SLT, _reg[r0], _reg[r2], _reg[r1], 0, EMPTY_STR, NULL);
-        addInstr(RiscvInstr::SEQZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR, NULL);
+    case RiscvInstr::LEQ: // (a <= b) == !(b < a)
+        addInstr(RiscvInstr::SLT, _reg[r0], _reg[r2], _reg[r1], 0, EMPTY_STR,
+                 NULL);
+        addInstr(RiscvInstr::SEQZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR,
+                 NULL);
         break;
-    case RiscvInstr::GEQ:  // (a >= b) == !(a < b)
-        addInstr(RiscvInstr::SLT, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
-        addInstr(RiscvInstr::SEQZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR, NULL);
+    case RiscvInstr::GEQ: // (a >= b) == !(a < b)
+        addInstr(RiscvInstr::SLT, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR,
+                 NULL);
+        addInstr(RiscvInstr::SEQZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR,
+                 NULL);
         break;
     case RiscvInstr::LAND:
-        addInstr(RiscvInstr::SNEZ, _reg[r1], _reg[r1], NULL, 0, EMPTY_STR, NULL);
-        addInstr(RiscvInstr::SNEZ, _reg[r2], _reg[r2], NULL, 0, EMPTY_STR, NULL);
-        addInstr(RiscvInstr::AND, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
+        addInstr(RiscvInstr::SNEZ, _reg[r1], _reg[r1], NULL, 0, EMPTY_STR,
+                 NULL);
+        addInstr(RiscvInstr::SNEZ, _reg[r2], _reg[r2], NULL, 0, EMPTY_STR,
+                 NULL);
+        addInstr(RiscvInstr::AND, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR,
+                 NULL);
         break;
     case RiscvInstr::LOR:
-        addInstr(RiscvInstr::OR, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
-        addInstr(RiscvInstr::SNEZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR, NULL);
+        addInstr(RiscvInstr::OR, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR,
+                 NULL);
+        addInstr(RiscvInstr::SNEZ, _reg[r0], _reg[r0], NULL, 0, EMPTY_STR,
+                 NULL);
         break;
     default:
         addInstr(op, _reg[r0], _reg[r1], _reg[r2], 0, EMPTY_STR, NULL);
@@ -421,18 +478,19 @@ void RiscvDesc::passParamReg(Tac *t, int cnt) {
     // RISC-V use a0-a7 to pass the first 8 parameters, so it's ok to do so.
     spillReg(RiscvReg::A0 + cnt, t->LiveOut);
     int i = lookupReg(t->op0.var);
-    if(i < 0) {
+    if (i < 0) {
         auto v = t->op0.var;
         RiscvReg *base = _reg[RiscvReg::FP];
         oss << "load " << v << " from (" << base->name
             << (v->offset < 0 ? "" : "+") << v->offset << ") into "
             << _reg[RiscvReg::A0 + cnt]->name;
-        addInstr(RiscvInstr::LW, _reg[RiscvReg::A0 + cnt], base, NULL, v->offset, EMPTY_STR,
-                    oss.str().c_str());
+        addInstr(RiscvInstr::LW, _reg[RiscvReg::A0 + cnt], base, NULL,
+                 v->offset, EMPTY_STR, oss.str().c_str());
     } else {
-        oss << "copy " << _reg[i]->name << " to " << _reg[RiscvReg::A0 + cnt]->name;
+        oss << "copy " << _reg[i]->name << " to "
+            << _reg[RiscvReg::A0 + cnt]->name;
         addInstr(RiscvInstr::MOVE, _reg[RiscvReg::A0 + cnt], _reg[i], NULL, 0,
-                    EMPTY_STR, oss.str().c_str());
+                 EMPTY_STR, oss.str().c_str());
     }
 }
 
@@ -490,7 +548,8 @@ void RiscvDesc::emitFuncty(Functy f) {
         return;
     }
 
-    mind_assert(!f->entry->str_form.empty()); // this assertion should hold for every Functy
+    mind_assert(!f->entry->str_form
+                     .empty()); // this assertion should hold for every Functy
     // outputs the header of a function
     emitProlog(f->entry, _frame->getStackFrameSize());
     // chains up the assembly code of every basic block and output.
@@ -528,7 +587,8 @@ void RiscvDesc::emitProlog(Label entry_label, int frame_size) {
     emit(EMPTY_STR, "sw    fp, -8(sp)", NULL); // saves return address
     // establishes new stack frame (new context)
     emit(EMPTY_STR, "mv    fp, sp", NULL);
-    oss << "addi  sp, sp, -" << (frame_size + 2 * WORD_SIZE); // 2 WORD's for old $fp and $ra
+    oss << "addi  sp, sp, -"
+        << (frame_size + 2 * WORD_SIZE); // 2 WORD's for old $fp and $ra
     emit(EMPTY_STR, oss.str().c_str(), NULL);
 }
 
@@ -567,53 +627,76 @@ void RiscvDesc::emitInstr(RiscvInstr *i) {
     case RiscvInstr::SW:
         oss << "sw" << i->r0->name << ", " << i->i << "(" << i->r1->name << ")";
         break;
-    
+
     case RiscvInstr::RET:
         oss << "ret";
         break;
-    
-    case RiscvInstr::ADD:
-        oss << "add" << i->r0->name << ", " << i->r1->name << ", " << i->r2->name;
+
+    case RiscvInstr::CALL:
+        oss << "call " << i->l;
         break;
-    
+
+    case RiscvInstr::PUSH:
+        oss << "push " << i->l;
+        break;
+
+    case RiscvInstr::POP:
+        oss << "pop " << i->l;
+        break;
+
+    case RiscvInstr::ADD:
+        oss << "add" << i->r0->name << ", " << i->r1->name << ", "
+            << i->r2->name;
+        break;
+
     case RiscvInstr::SUB:
-        oss << "sub" << i->r0->name << ", " << i->r1->name << ", " << i->r2->name;
+        oss << "sub" << i->r0->name << ", " << i->r1->name << ", "
+            << i->r2->name;
         break;
 
     case RiscvInstr::MUL:
-        oss << "mul" << i->r0->name << ", " << i->r1->name << ", " << i->r2->name;
+        oss << "mul" << i->r0->name << ", " << i->r1->name << ", "
+            << i->r2->name;
         break;
 
     case RiscvInstr::DIV:
-        oss << "div" << i->r0->name << ", " << i->r1->name << ", " << i->r2->name;
+        oss << "div" << i->r0->name << ", " << i->r1->name << ", "
+            << i->r2->name;
         break;
 
     case RiscvInstr::REM:
-        oss << "rem" << i->r0->name << ", " << i->r1->name << ", " << i->r2->name;
+        oss << "rem" << i->r0->name << ", " << i->r1->name << ", "
+            << i->r2->name;
         break;
 
     case RiscvInstr::SLT:
-        oss << "slt" << i->r0->name << ", " << i->r1->name << ", " << i->r2->name;
+        oss << "slt" << i->r0->name << ", " << i->r1->name << ", "
+            << i->r2->name;
         break;
 
     case RiscvInstr::LES:
-        oss << "slt"  << i->r0->name << ", " << i->r1->name << ", " << i->r2->name;
+        oss << "slt" << i->r0->name << ", " << i->r1->name << ", "
+            << i->r2->name;
         break;
 
     case RiscvInstr::GRT: // (a > b) == (b < a)
-        oss << "slt"  << i->r0->name << ", " << i->r2->name << ", " << i->r1->name;
+        oss << "slt" << i->r0->name << ", " << i->r2->name << ", "
+            << i->r1->name;
         break;
 
     case RiscvInstr::AND: // (a > b) == (b < a)
-        oss << "and"  << i->r0->name << ", " << i->r2->name << ", " << i->r1->name;
+        oss << "and" << i->r0->name << ", " << i->r2->name << ", "
+            << i->r1->name;
         break;
 
     case RiscvInstr::OR: // (a > b) == (b < a)
-        oss << "or"  << i->r0->name << ", " << i->r2->name << ", " << i->r1->name;
+        oss << "or" << i->r0->name << ", " << i->r2->name << ", "
+            << i->r1->name;
         break;
 
     case RiscvInstr::XOR: // (a > b) == (b < a)
-        oss << "xor"  << i->r0->name << ", " << i->r2->name << ", " << i->r1->name;
+        oss << "xor" << i->r0->name << ", " << i->r2->name << ", "
+            << i->r1->name;
         break;
 
     case RiscvInstr::BEQZ:
@@ -624,15 +707,15 @@ void RiscvDesc::emitInstr(RiscvInstr *i) {
         oss << "j" << i->l;
         break;
 
-    case RiscvInstr::NOT:  // pseudo instr
+    case RiscvInstr::NOT: // pseudo instr
         oss << "not" << i->r0->name << ", " << i->r1->name;
         break;
 
-    case RiscvInstr::SNEZ:  // pseudo instr
+    case RiscvInstr::SNEZ: // pseudo instr
         oss << "snez" << i->r0->name << ", " << i->r1->name;
         break;
 
-    case RiscvInstr::SEQZ:  // pseudo instr
+    case RiscvInstr::SEQZ: // pseudo instr
         oss << "seqz" << i->r0->name << ", " << i->r1->name;
         break;
 
@@ -709,7 +792,6 @@ void RiscvDesc::addInstr(RiscvInstr::OpCode op_code, RiscvReg *r0, RiscvReg *r1,
     _tail->comment = cmt;
 }
 
-
 /******************** a simple peephole optimizer *********************/
 
 /* Performs a peephole optimization pass to the instruction sequence.
@@ -720,7 +802,6 @@ void RiscvDesc::addInstr(RiscvInstr::OpCode op_code, RiscvReg *r0, RiscvReg *r1,
 void RiscvDesc::simplePeephole(RiscvInstr *iseq) {
     // if you are interested in peephole optimization, you can implement here
     // of course, beyond our requirements
-    
 }
 
 /******************* REGISTER ALLOCATOR ***********************/

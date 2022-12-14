@@ -5,8 +5,8 @@
  *  1. BasicBlock::computeDefAndLiveUse
  *  2. FlowGraph::analyzeLiveness
  *  3. BasicBlock::analysisLiveness
- * 
- *  Of course, if you add some new Tacs, 
+ *
+ *  Of course, if you add some new Tacs,
  *  you are supposed to update the codes at line 38 and line 176.
  *
  */
@@ -70,10 +70,12 @@ void BasicBlock::computeDefAndLiveUse(void) {
 
         case Tac::POP:
         case Tac::LOAD_IMM4:
+        case Tac::CALL:
             updateDEF(t->op0.var);
             break;
 
         case Tac::PUSH:
+        case Tac::PARAM:
             updateLU(t->op0.var);
             break;
 
@@ -184,6 +186,7 @@ void BasicBlock::analyzeLiveness(void) {
     if (end_kind == BY_JZERO || end_kind == BY_RETURN)
         t->LiveOut->add(var);
 
+    // evaluate from down to top
     for (t = t->prev; t != NULL; t = t->prev) {
         t->LiveOut = t->next->LiveOut->clone();
         t_next = t->next;
@@ -193,6 +196,7 @@ void BasicBlock::analyzeLiveness(void) {
         case Tac::NEG:
         case Tac::LNOT:
         case Tac::BNOT:
+        case Tac::PARAM:
             if (NULL != t_next->op0.var)
                 t->LiveOut->remove(t_next->op0.var);
             t->LiveOut->add(t_next->op1.var);
@@ -215,6 +219,14 @@ void BasicBlock::analyzeLiveness(void) {
                 t->LiveOut->remove(t_next->op0.var);
             t->LiveOut->add(t_next->op1.var);
             t->LiveOut->add(t_next->op2.var);
+            break;
+
+        case Tac::CALL:
+            if (NULL != t_next->op0.var)
+                t->LiveOut->remove(t_next->op0.var);
+            for (auto it = t_next->FuncParams->begin(); it != t_next->FuncParams->end();
+                 it++)
+                t->LiveOut->add(*it);
             break;
 
         case Tac::POP:

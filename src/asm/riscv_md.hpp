@@ -7,6 +7,7 @@
 #define __MIND_RISCVMD__
 
 #include "3rdparty/set.hpp"
+#include "3rdparty/vector.hpp"
 #include "asm/mach_desc.hpp"
 #include "asm/riscv_frame_manager.hpp"
 #include "define.hpp"
@@ -112,6 +113,9 @@ struct RiscvInstr : public Instr {
         LOR,
         AND,
         OR,
+        CALL,
+        PUSH,
+        POP,
         // You could add other instructions/pseudo instructions here
     } op_code; // operation code
 
@@ -167,6 +171,8 @@ class RiscvDesc : public MachineDesc {
     void emitBinaryTac(RiscvInstr::OpCode, tac::Tac *);
     // translates a Assign TAC into assembly instructions
     void emitAssignTac(tac::Tac *);
+    void emitCallTac(tac::Tac *);
+    void emitParamTac(tac::Tac *);
 
     // outputs an instruction
     void emit(std::string, const char *, const char *);
