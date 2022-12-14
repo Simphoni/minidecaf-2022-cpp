@@ -1,7 +1,7 @@
 /*****************************************************
  *  Implementation of "Function".
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #include "config.hpp"
@@ -33,6 +33,7 @@ Function::Function(std::string n, Type *resType, Location *l) {
     loc = l;
     order = -1;
     mark = 0;
+    declared = false;
 
     type = new FuncType(resType);
     associated = new FuncScope(this);
@@ -142,3 +143,9 @@ Label Function::getEntryLabel(void) { return entry; }
  *   the attached Functy object
  */
 Functy Function::getFuncty(void) { return attached; }
+
+void Function::setDeclared() { declared = true; }
+
+bool Function::readDeclareState() {
+    return declared;
+}

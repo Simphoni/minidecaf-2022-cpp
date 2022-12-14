@@ -294,6 +294,10 @@ void RiscvDesc::emitTac(Tac *t) {
         emitParamTac(t);
         break;
 
+    case Tac::LINK:
+        getParamReg(t, t->op1.ival);
+        break;
+
     case Tac::CALL:
         emitCallTac(t);
         break;
@@ -304,31 +308,49 @@ void RiscvDesc::emitTac(Tac *t) {
 }
 
 void RiscvDesc::emitCallTac(Tac *t) {
+    static int caller_saved_regs[7] = {/* RA is saved by prolog */
+                                       /* T0-T2 */ 5,  6,  7,
+                                       /* T3-T6 */ 28, 29, 30, 31};
     int nparams = t->FuncParams->size();
+    auto RealLiveOut = t->LiveOut->clone();
     for (int i = 0; i < nparams; i++)
         t->LiveOut->add((*t->FuncParams)[i]);
-    for (int i = 0; i < 8 && i < nparams; i++) {
-        spillReg(RiscvReg::A0 + i, t->LiveOut);
-        int j = lookupReg((*t->FuncParams)[i]);
-        if (i < 0) { // load from stack
-            addInstr(RiscvInstr::LW, _reg[RiscvReg::A0 + i], _reg[RiscvReg::FP],
-                     NULL, (*t->FuncParams)[i]->offset, EMPTY_STR, NULL);
-        } else {
-            addInstr(RiscvInstr::MOVE, _reg[RiscvReg::A0 + i], _reg[j], NULL, 0,
-                     EMPTY_STR, NULL);
-        }
-    }
     for (int i = nparams - 1; i >= 8; i--) {
         int r0 = getRegForRead((*t->FuncParams)[i], 0, t->LiveOut);
         addInstr(RiscvInstr::PUSH, _reg[r0], NULL, NULL, 0, EMPTY_STR, NULL);
     }
+    for (int i = 0; i < 8 && i < nparams; i++) {
+        std::ostringstream oss;
+        oss << "prepare param " << i;
+        spillReg(RiscvReg::A0 + i, t->LiveOut);
+        int r1 = lookupReg((*t->FuncParams)[i]);
+        if (r1 < 0) { // load from stack
+            addInstr(RiscvInstr::LW, _reg[RiscvReg::A0 + i], _reg[RiscvReg::FP],
+                     NULL, (*t->FuncParams)[i]->offset, EMPTY_STR,
+                     oss.str().c_str());
+        } else if (RiscvReg::A0 + i != r1) {
+            addInstr(RiscvInstr::MOVE, _reg[RiscvReg::A0 + i], _reg[r1], NULL,
+                     0, EMPTY_STR, oss.str().c_str());
+        }
+    }
+    // caller saved registers
+    // notice that we call after PARAMS, for the registers needed for PARAMS
+    // may not be in LiveOut, and can be annihilated after this operation
+    for (int i = 0; i < 7; i++)
+        spillReg(caller_saved_regs[i], RealLiveOut);
+    // A0-A8 need to be saved, for the callee may use them
+    for (int i = 0; i < 8; i++)
+        spillReg(RiscvReg::A0 + i, RealLiveOut);
+    // call
     addInstr(RiscvInstr::CALL, NULL, NULL, NULL, 0,
              std::string("_") + t->op1.label->str_form, NULL);
+    // update CallExpr result Temp
     int r0 = lookupReg(t->op0.var);
     if (r0 < 0)
-        r0 = getRegForWrite(t->op0.var, RiscvReg::A0, 0, t->LiveOut);
-    addInstr(RiscvInstr::MOVE, _reg[r0], _reg[RiscvReg::A0], NULL, 0, EMPTY_STR,
-             NULL);
+        r0 = getRegForWrite(t->op0.var, RiscvReg::A0, 0, RealLiveOut);
+    if (r0 != RiscvReg::A0)
+        addInstr(RiscvInstr::MOVE, _reg[r0], _reg[RiscvReg::A0], NULL, 0,
+                 EMPTY_STR, NULL);
 }
 
 void RiscvDesc::emitParamTac(Tac *t) {
@@ -637,11 +659,10 @@ void RiscvDesc::emitInstr(RiscvInstr *i) {
         break;
 
     case RiscvInstr::PUSH:
-        oss << "push " << i->l;
-        break;
-
-    case RiscvInstr::POP:
-        oss << "pop " << i->l;
+        oss << "addi\tsp, sp, -4\n";
+        oss << "          ";
+        oss << std::left << std::setw(6);
+        oss << "sw" << i->r0->name << ", (" << _reg[RiscvReg::SP]->name << ")";
         break;
 
     case RiscvInstr::ADD:

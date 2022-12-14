@@ -31,6 +31,7 @@ FuncDefn::FuncDefn(std::string n, Type *t, VarList *flist, StmtList *slist,
     formals = flist;
     stmts = slist;
     forward_decl = false;
+    first_decl = false;
 }
 FuncDefn::FuncDefn(std::string n, Type *t, VarList *flist, EmptyStmt *empty,
                    Location *l) {
@@ -41,6 +42,7 @@ FuncDefn::FuncDefn(std::string n, Type *t, VarList *flist, EmptyStmt *empty,
     formals = flist;
     stmts = new ast::StmtList();
     forward_decl = true;
+    first_decl = false;
 }
 /* Visits the current node.
  *

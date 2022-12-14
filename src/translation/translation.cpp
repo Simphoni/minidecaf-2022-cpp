@@ -59,7 +59,10 @@ void Translation::visit(ast::FuncDefn *f) {
     Function *fun = f->ATTR(sym);
 
     // attaching function entry label
-    fun->attachEntryLabel(tr->getNewEntryLabel(fun));
+    if (f->first_decl)
+        fun->attachEntryLabel(tr->getNewEntryLabel(fun));
+    if (f->forward_decl)
+        return;
 
     // arguments
     int order = 0;
@@ -76,6 +79,10 @@ void Translation::visit(ast::FuncDefn *f) {
     tr->startFunc(fun);
 
     // You may process params here, i.e use reg or stack to pass parameters
+    int numparams = f->formals->length();
+    auto fit = f->formals->begin();
+    for (int i = 0; i < 8 && i < numparams; ++i, ++fit)
+        tr->genLinkRegToTemp((*fit)->ATTR(sym)->getTemp(), i);
 
     // translates statement by statement
     for (auto it = f->stmts->begin(); it != f->stmts->end(); ++it)

@@ -453,6 +453,10 @@ Temp TransHelper::genParam(Temp value) {
     return param;
 }
 
+void TransHelper::genLinkRegToTemp(Temp param, int regnum) {
+    chainUp(Tac::Link(param, regnum));
+}
+
 /* Appends an Assign tac node to the current list.
  *
  * PARAMETERS:

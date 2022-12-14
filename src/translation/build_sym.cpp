@@ -12,6 +12,7 @@
  *  Keltin Leung
  */
 
+#include "3rdparty/list.hpp"
 #include "ast/ast.hpp"
 #include "ast/visitor.hpp"
 #include "compiler.hpp"
@@ -86,25 +87,48 @@ void SemPass1::visit(ast::FuncDefn *fdef) {
     Type *t = fdef->ret_type->ATTR(type);
 
     Function *f = new Function(fdef->name, t, fdef->getLocation());
-    fdef->ATTR(sym) = f;
 
     // checks the Declaration Conflict Error of Case 1 (but don't check Case
     // 2,3). if DeclConflictError occurs, we don't put the symbol into the
     // symbol table
+    bool hasFwdDecl = false;
     Symbol *sym = scopes->lookup(fdef->name, fdef->getLocation(), false);
-    if (NULL != sym)
-        issue(fdef->getLocation(), new DeclConflictError(fdef->name, sym));
-    else
+    if (NULL != sym) {
+        if (!sym->isFunction())
+            issue(fdef->getLocation(), new DeclConflictError(fdef->name, sym));
+        hasFwdDecl = true;
+        Function *ofun = static_cast<Function *>(sym);
+        util::List<Type *> *p = ofun->getType()->getArgList();
+        util::List<Type *> *q = f->getType()->getArgList();
+        if (p->length() != q->length())
+            issue(fdef->getLocation(), new DeclConflictError(fdef->name, sym));
+        for (auto pit = p->begin(), qit = q->begin(); pit != p->end();
+             ++pit, ++qit)
+            if (!(*pit)->equal(*qit))
+                issue(fdef->getLocation(),
+                      new DeclConflictError(fdef->name, sym));
+        if (ofun->readDeclareState() &&
+            !fdef->forward_decl) // declare only once
+            issue(fdef->getLocation(), new DeclConflictError(fdef->name, sym));
+        if (fdef->forward_decl) // no need to declare twice
+            return;
+    } else {
         scopes->declare(f);
-
+        fdef->first_decl = true;
+    }
+    if (NULL != sym)
+        f = static_cast<Function *>(sym);
+    fdef->ATTR(sym) = f;
     // opens function scope
     scopes->open(f->getAssociatedScope());
 
     // adds the parameters
-    for (ast::VarList::iterator it = fdef->formals->begin();
-         it != fdef->formals->end(); ++it) {
-        (*it)->accept(this);
-        f->appendParameter((*it)->ATTR(sym));
+    if (!hasFwdDecl) { // prepare arguments
+        for (ast::VarList::iterator it = fdef->formals->begin();
+             it != fdef->formals->end(); ++it) {
+            (*it)->accept(this);
+            f->appendParameter((*it)->ATTR(sym));
+        }
     }
 
     // adds the local variables
@@ -152,7 +176,7 @@ void SemPass1::visit(ast::ForStmt *s) {
     if (s->rear != NULL)
         s->rear->accept(this);
     s->loop_body->accept(this);
-    
+
     scopes->close();
 }
 

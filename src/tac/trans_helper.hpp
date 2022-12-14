@@ -67,6 +67,7 @@ class TransHelper {
     void genJumpOnZero(Label, Temp);
     void genReturn(Temp);
     Temp genParam(Temp);
+    void genLinkRegToTemp(Temp, int);
     Temp genCall(Label, util::Vector<Temp> *);
     // Miscellaneous
     void genAssign(Temp, Temp);

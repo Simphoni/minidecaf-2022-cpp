@@ -210,6 +210,7 @@ class FuncDefn : public ASTNode {
     Type *ret_type;
     VarList *formals;
     StmtList *stmts;
+    bool first_decl;
     bool forward_decl;         // is this FuncDefn a forward declaration or full
                                // definition?
     symb::Function *ATTR(sym); // for semantic analysis

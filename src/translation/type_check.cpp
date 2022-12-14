@@ -440,10 +440,12 @@ void SemPass2::visit(ast::FuncDefn *f) {
 
     retType = f->ret_type->ATTR(type);
 
-    scopes->open(f->ATTR(sym)->getAssociatedScope());
-    for (it = f->stmts->begin(); it != f->stmts->end(); ++it)
-        (*it)->accept(this);
-    scopes->close();
+    if (f->first_decl) {
+        scopes->open(f->ATTR(sym)->getAssociatedScope());
+        for (it = f->stmts->begin(); it != f->stmts->end(); ++it)
+            (*it)->accept(this);
+        scopes->close();
+    }
 }
 
 /* Visits an ast::Program node.

@@ -575,6 +575,13 @@ Tac *Tac::Param(Temp param, Temp value) {
     return t;
 }
 
+Tac *Tac::Link(Temp param, int regnum) {
+    REQUIRE_I4(param);
+    Tac *t = allocateNewTac(Tac::LINK);
+    t->op0.var = param;
+    t->op1.ival = regnum;
+    return t;
+}
 /* Creates a Mark tac.
  *
  * NOTE:
@@ -767,6 +774,10 @@ void Tac::dump(std::ostream &os) {
 
     case PARAM:
         os << "    " << op0.var << " <- " << op1.var;
+        break;
+
+    case LINK:
+        os << "    " << op0.var << " <- reg[a" << op1.ival << "]";
         break;
 
     case CALL:

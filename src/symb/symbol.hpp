@@ -113,6 +113,7 @@ class Function : public Symbol {
     tac::Label entry;
     // the associated Functy object
     tac::Functy attached;
+    bool declared;
 
   public:
     // Constructor
@@ -141,6 +142,8 @@ class Function : public Symbol {
     void attachEntryLabel(tac::Label);
     // Gets the entry label of this function
     tac::Label getEntryLabel(void);
+    void setDeclared();
+    bool readDeclareState();
 };
 
 } // namespace symb
