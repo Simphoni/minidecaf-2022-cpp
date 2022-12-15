@@ -451,8 +451,22 @@ void TransHelper::genParam(Temp value, int regnum) {
     chainUp(Tac::Param(value, regnum));
 }
 
-void TransHelper::genLinkRegToTemp(Temp param, int regnum) {
-    chainUp(Tac::Link(param, regnum));
+void TransHelper::genBindRegToTemp(Temp param, int regnum) {
+    chainUp(Tac::Bind(param, regnum));
+}
+
+Temp TransHelper::genLoadSymbol(std::string globvar) {
+    Temp c = getNewTempI4();
+    chainUp(Tac::LoadSymbol(c, globvar));
+    return c;
+}
+
+void TransHelper::genLoad(Temp c, Temp a, int offset) {
+    chainUp(Tac::Load(c, a, offset));
+}
+
+void TransHelper::genStore(Temp c, Temp a, int offset) {
+    chainUp(Tac::Store(c, a, offset));
 }
 
 /* Appends an Assign tac node to the current list.

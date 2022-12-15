@@ -224,9 +224,24 @@ void SemPass1::visit(ast::VarDecl *vdecl) {
     else {
         scopes->declare(v);
         vdecl->ATTR(sym) = v;
-        if (vdecl->init != NULL)
+        if (vdecl->init != NULL) {
             vdecl->init->accept(this);
-        // if (v->isGlobalVar())
+            if (vdecl->ATTR(sym)->isGlobalVar()) {
+                // only support initiating with constant
+                if (vdecl->init->getKind() == ast::ASTNode::INT_CONST)
+                    vdecl->ATTR(sym)->setGlobalInit(
+                        dynamic_cast<ast::IntConst *>(vdecl->init)->value);
+                else {
+                    fprintf(stderr,
+                            "[%s:%d] error: globals must be initialized with "
+                            "integer constant.\n",
+                            __FILE__, __LINE__);
+                    throw;
+                }
+            }
+        } else if (vdecl->ATTR(sym)->isGlobalVar()) {
+            vdecl->ATTR(sym)->setGlobalInit(0); // default to zero
+        }
     }
 }
 

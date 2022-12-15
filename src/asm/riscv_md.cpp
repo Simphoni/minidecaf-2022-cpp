@@ -26,6 +26,7 @@ using namespace mind;
 // declaration of empty string
 #define EMPTY_STR std::string()
 #define WORD_SIZE 4
+#define BUFF_SIZE 64
 
 /* Constructor of RiscvReg.
  *
@@ -91,6 +92,11 @@ RiscvDesc::RiscvDesc(void) {
     _label_counter = 0;
 }
 
+static void dumpIntoChars(char *s, std::ostringstream &oss) {
+    memcpy(s, oss.str().c_str(), sizeof(char) * oss.str().length());
+    s[oss.str().length()] = 0;
+}
+
 /* Gets the offset counter for this machine.
  *
  * RETURNS:
@@ -113,6 +119,40 @@ void RiscvDesc::emitPieces(scope::GlobalScope *gscope, Piece *ps,
 
     if (Option::getLevel() == Option::ASMGEN) {
         // program preamble
+        // bss segment
+        emit(EMPTY_STR, ".bss", NULL);
+        for (scope::GlobalScope::iterator it = gscope->begin();
+             it != gscope->end(); ++it)
+            if ((*it)->isVariable()) {
+                symb::Variable *v = static_cast<symb::Variable *>(*it);
+                if (v->getGlobalInit() == 0) {
+                    char *s = new char[BUFF_SIZE];
+                    sprintf(s, ".globl %s", v->getName().c_str());
+                    emit(EMPTY_STR, s, NULL);
+                    sprintf(s, "%s:", v->getName().c_str());
+                    emit(EMPTY_STR, s, NULL);
+                    emit(EMPTY_STR, "    .space 4", NULL);
+                    delete[] s;
+                }
+            }
+        // data segment
+        emit(EMPTY_STR, ".data", NULL);
+        for (scope::GlobalScope::iterator it = gscope->begin();
+             it != gscope->end(); ++it)
+            if ((*it)->isVariable()) {
+                symb::Variable *v = static_cast<symb::Variable *>(*it);
+                if (v->getGlobalInit()) {
+                    char *s = new char[BUFF_SIZE];
+                    sprintf(s, ".globl %s", v->getName().c_str());
+                    emit(EMPTY_STR, s, NULL);
+                    sprintf(s, "%s:", v->getName().c_str());
+                    emit(EMPTY_STR, s, NULL);
+                    sprintf(s, "    .word %d", v->getGlobalInit());
+                    emit(EMPTY_STR, s, NULL);
+                    delete[] s;
+                }
+            }
+        // text segment
         emit(EMPTY_STR, ".text", NULL);
         emit(EMPTY_STR, ".globl main", NULL);
         emit(EMPTY_STR, ".align 2", NULL);
@@ -294,11 +334,20 @@ void RiscvDesc::emitTac(Tac *t) {
         emitPushTac(t);
         break;
 
+    case Tac::LOAD_SYMBOL:
+        emitLoadSymbolTac(t);
+        break;
+
+    case Tac::LOAD:
+    case Tac::STORE:
+        emitMemoryTac(t);
+        break;
+
     case Tac::PARAM:
         passParamReg(t, t->op1.ival);
         break;
 
-    case Tac::LINK:
+    case Tac::BIND:
         getParamReg(t, t->op1.ival);
         break;
 
@@ -311,6 +360,25 @@ void RiscvDesc::emitTac(Tac *t) {
     }
 }
 
+void RiscvDesc::emitLoadSymbolTac(Tac *t) {
+    int r0 = getRegForWrite(t->op0.var, 0, 0, t->LiveOut);
+    addInstr(RiscvInstr::LA, _reg[r0], NULL, NULL, 0, t->op1.name, NULL);
+}
+
+void RiscvDesc::emitMemoryTac(Tac *t) {
+    if (t->op_code == Tac::LOAD) {
+        int r1 = getRegForRead(t->op1.var, 0, t->LiveOut);
+        int r0 = getRegForWrite(t->op0.var, r1, 0, t->LiveOut);
+        addInstr(RiscvInstr::LW, _reg[r0], _reg[r1], NULL, t->op1.offset,
+                 EMPTY_STR, NULL);
+    } else if (t->op_code == Tac::STORE) {
+        int r1 = getRegForRead(t->op1.var, 0, t->LiveOut);
+        int r0 = getRegForRead(t->op0.var, r1, t->LiveOut);
+        addInstr(RiscvInstr::SW, _reg[r0], _reg[r1], NULL, t->op1.offset,
+                 EMPTY_STR, NULL);
+    }
+}
+
 void RiscvDesc::emitPushTac(Tac *t) {
     int r0 = getRegForRead(t->op0.var, 0, t->LiveOut);
     addInstr(RiscvInstr::PUSH, _reg[r0], NULL, NULL, 0, EMPTY_STR, NULL);
@@ -320,22 +388,21 @@ void RiscvDesc::emitCallTac(Tac *t) {
     static int caller_saved_regs[7] = {/* RA is saved by prolog */
                                        /* T0-T2 */ 5,  6,  7,
                                        /* T3-T6 */ 28, 29, 30, 31};
-    auto RealLiveOut = t->LiveOut->clone();
     // caller saved registers
     // notice that we call after PARAMS, for the registers needed for PARAMS
     // may not be in LiveOut, and can be annihilated after this operation
     for (int i = 0; i < 7; i++)
-        spillReg(caller_saved_regs[i], RealLiveOut);
+        spillReg(caller_saved_regs[i], t->LiveOut);
     // A0-A8 need to be saved, for the callee may use them
     for (int i = 0; i < 8; i++)
-        spillReg(RiscvReg::A0 + i, RealLiveOut);
+        spillReg(RiscvReg::A0 + i, t->LiveOut);
     // call
     addInstr(RiscvInstr::CALL, NULL, NULL, NULL, 0,
              std::string("_") + t->op1.label->str_form, NULL);
     // update CallExpr result Temp
     int r0 = lookupReg(t->op0.var);
     if (r0 < 0)
-        r0 = getRegForWrite(t->op0.var, RiscvReg::A0, 0, RealLiveOut);
+        r0 = getRegForWrite(t->op0.var, RiscvReg::A0, 0, t->LiveOut);
     if (r0 != RiscvReg::A0)
         addInstr(RiscvInstr::MOVE, _reg[r0], _reg[RiscvReg::A0], NULL, 0,
                  EMPTY_STR, NULL);
@@ -483,18 +550,21 @@ void RiscvDesc::passParamReg(Tac *t, int cnt) {
     // RISC-V use a0-a7 to pass the first 8 parameters, so it's ok to do so.
     spillReg(RiscvReg::A0 + cnt, t->LiveOut);
     int i = lookupReg(v);
+    char *s = new char[BUFF_SIZE];
     if (i < 0) {
         RiscvReg *base = _reg[RiscvReg::FP];
         oss << "load " << v << " from (" << base->name
             << (v->offset < 0 ? "" : "+") << v->offset << ") into "
             << _reg[RiscvReg::A0 + cnt]->name;
+        dumpIntoChars(s, oss);
         addInstr(RiscvInstr::LW, _reg[RiscvReg::A0 + cnt], base, NULL,
-                 v->offset, EMPTY_STR, oss.str().c_str());
+                 v->offset, EMPTY_STR, s);
     } else {
         oss << "copy " << _reg[i]->name << " to "
             << _reg[RiscvReg::A0 + cnt]->name;
+        dumpIntoChars(s, oss);
         addInstr(RiscvInstr::MOVE, _reg[RiscvReg::A0 + cnt], _reg[i], NULL, 0,
-                 EMPTY_STR, oss.str().c_str());
+                 EMPTY_STR, s);
     }
 }
 
@@ -614,6 +684,10 @@ void RiscvDesc::emitInstr(RiscvInstr *i) {
 
     case RiscvInstr::LI:
         oss << "li" << i->r0->name << ", " << i->i;
+        break;
+
+    case RiscvInstr::LA:
+        oss << "la" << i->r0->name << ", " << i->l;
         break;
 
     case RiscvInstr::NEG:
@@ -822,7 +896,7 @@ int RiscvDesc::getRegForRead(Temp v, int avoid1, LiveSet *live) {
     std::ostringstream oss;
 
     int i = lookupReg(v);
-
+    char *cmt = new char[BUFF_SIZE];
     if (i < 0) {
         // we will load the content into some register
         i = lookupReg(NULL);
@@ -839,13 +913,15 @@ int RiscvDesc::getRegForRead(Temp v, int avoid1, LiveSet *live) {
             oss << "load " << v << " from (" << base->name
                 << (v->offset < 0 ? "" : "+") << v->offset << ") into "
                 << _reg[i]->name;
+            dumpIntoChars(cmt, oss);
             addInstr(RiscvInstr::LW, _reg[i], base, NULL, v->offset, EMPTY_STR,
-                     oss.str().c_str());
+                     cmt);
 
         } else {
             oss << "initialize " << v << " with 0";
+            dumpIntoChars(cmt, oss);
             addInstr(RiscvInstr::MOVE, _reg[i], _reg[RiscvReg::ZERO], NULL, 0,
-                     EMPTY_STR, oss.str().c_str());
+                     EMPTY_STR, cmt);
         }
         _reg[i]->dirty = false;
     }
@@ -907,8 +983,9 @@ void RiscvDesc::spillReg(int i, LiveSet *live) {
 
         oss << "spill " << v << " from " << _reg[i]->name << " to ("
             << base->name << (v->offset < 0 ? "" : "+") << v->offset << ")";
-        addInstr(RiscvInstr::SW, _reg[i], base, NULL, v->offset, EMPTY_STR,
-                 oss.str().c_str());
+        char *s = new char[BUFF_SIZE];
+        dumpIntoChars(s, oss);
+        addInstr(RiscvInstr::SW, _reg[i], base, NULL, v->offset, EMPTY_STR, s);
     }
 
     _reg[i]->var = NULL;

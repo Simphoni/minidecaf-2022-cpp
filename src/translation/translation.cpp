@@ -82,7 +82,7 @@ void Translation::visit(ast::FuncDefn *f) {
     int numparams = f->formals->length();
     auto fit = f->formals->begin();
     for (int i = 0; i < 8 && i < numparams; ++i, ++fit)
-        tr->genLinkRegToTemp((*fit)->ATTR(sym)->getTemp(), i);
+        tr->genBindRegToTemp((*fit)->ATTR(sym)->getTemp(), i);
 
     // translates statement by statement
     for (auto it = f->stmts->begin(); it != f->stmts->end(); ++it)
@@ -102,10 +102,16 @@ void Translation::visit(ast::AssignExpr *s) {
     // TODO
     s->left->accept(this);
     s->e->accept(this);
-    // (ME)NOTICE: for pointers, this should be different
-    tr->genAssign(((ast::VarRef *)s->left)->ATTR(sym)->getTemp(),
-                  s->e->ATTR(val));
-    s->ATTR(val) = ((ast::VarRef *)s->left)->ATTR(sym)->getTemp();
+    ast::Lvalue *left = s->left;
+    if (left->ATTR(lv_kind) == ast::Lvalue::SIMPLE_VAR) {
+        ast::VarRef *var = static_cast<ast::VarRef *>(left);
+        tr->genAssign(var->ATTR(sym)->getTemp(), s->e->ATTR(val));
+        if (var->ATTR(sym)->isGlobalVar()) {
+            tr->genStore(var->ATTR(sym)->getTemp(), tr->genLoadSymbol(var->var),
+                         0);
+        }
+        s->ATTR(val) = var->ATTR(sym)->getTemp();
+    }
 }
 
 /* Translating an ast::ExprStmt node.
@@ -357,7 +363,15 @@ void Translation::visit(ast::BitNotExpr *e) {
 void Translation::visit(ast::LvalueExpr *e) {
     // TODO
     e->lvalue->accept(this);
-    e->ATTR(val) = ((ast::VarRef *)e->lvalue)->ATTR(sym)->getTemp();
+    ast::Lvalue *lv = e->lvalue;
+    if (lv->ATTR(lv_kind) == ast::Lvalue::SIMPLE_VAR) {
+        ast::VarRef *var = static_cast<ast::VarRef *>(lv);
+        if (var->ATTR(sym)->isGlobalVar()) {
+            tr->genLoad(var->ATTR(sym)->getTemp(), tr->genLoadSymbol(var->var),
+                        0);
+        }
+        e->ATTR(val) = var->ATTR(sym)->getTemp();
+    }
 }
 
 /* Translating an ast::VarRef node.
@@ -383,7 +397,7 @@ void Translation::visit(ast::VarRef *ref) {
 void Translation::visit(ast::VarDecl *decl) {
     // TODO
     decl->ATTR(sym)->attachTemp(tr->getNewTempI4());
-    // the `init` Expr is allowed to use the new-declared symbol
+    // the `init` Expr is allowed to use the newly-declared symbol
     if (decl->init != NULL)
         decl->init->accept(this);
     if (decl->init != NULL)

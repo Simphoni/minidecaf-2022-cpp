@@ -98,7 +98,10 @@ struct Tac {
         MEMO,
         CALL,
         PARAM,
-        LINK
+        BIND,
+        LOAD_SYMBOL,
+        LOAD,
+        STORE
     } Kind;
 
     // Operand type
@@ -152,7 +155,10 @@ struct Tac {
     static Tac *Memo(const char *);
     static Tac *Call(Temp dest, Label label);
     static Tac *Param(Temp, int);
-    static Tac *Link(Temp, int);
+    static Tac *Bind(Temp, int);
+    static Tac *LoadSymbol(Temp, std::string);
+    static Tac *Load(Temp, Temp, int);
+    static Tac *Store(Temp, Temp, int);
 
     // dumps a single tac node to some output stream
     void dump(std::ostream &);

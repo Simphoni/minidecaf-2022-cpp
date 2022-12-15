@@ -67,13 +67,17 @@ class TransHelper {
     void genJumpOnZero(Label, Temp);
     void genReturn(Temp);
     void genParam(Temp, int);
-    void genLinkRegToTemp(Temp, int);
+    void genBindRegToTemp(Temp, int);
     Temp genCall(Label);
     // Miscellaneous
     void genAssign(Temp, Temp);
     Temp genLoadImm4(int);
     void genMarkLabel(Label);
     void genMemo(const char *);
+    // Global variable
+    Temp genLoadSymbol(std::string);
+    void genLoad(Temp, Temp, int);
+    void genStore(Temp, Temp, int);
 
     // gets the entire Piece list
     Piece *getPiece();

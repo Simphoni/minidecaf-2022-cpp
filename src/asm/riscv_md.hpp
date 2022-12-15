@@ -96,6 +96,7 @@ struct RiscvInstr : public Instr {
         RET,
         LW,
         LI,
+        LA,
         SW,
         MOVE,
         XOR,
@@ -173,6 +174,8 @@ class RiscvDesc : public MachineDesc {
     void emitAssignTac(tac::Tac *);
     void emitCallTac(tac::Tac *);
     void emitPushTac(tac::Tac *);
+    void emitLoadSymbolTac(tac::Tac *);
+    void emitMemoryTac(tac::Tac *);
 
     // outputs an instruction
     void emit(std::string, const char *, const char *);

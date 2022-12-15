@@ -574,9 +574,9 @@ Tac *Tac::Param(Temp value, int regnum) {
     return t;
 }
 
-Tac *Tac::Link(Temp param, int regnum) {
+Tac *Tac::Bind(Temp param, int regnum) {
     REQUIRE_I4(param);
-    Tac *t = allocateNewTac(Tac::LINK);
+    Tac *t = allocateNewTac(Tac::BIND);
     t->op0.var = param;
     t->op1.ival = regnum;
     return t;
@@ -603,6 +603,29 @@ Tac *Tac::Call(Temp dest, Label label) {
     Tac *t = allocateNewTac(Tac::CALL);
     t->op0.var = dest;
     t->op1.label = label;
+    return t;
+}
+
+Tac *Tac::LoadSymbol(Temp dest, std::string globvar) {
+    Tac *t = allocateNewTac(Tac::LOAD_SYMBOL);
+    t->op0.var = dest;
+    t->op1.name = globvar;
+    return t;
+}
+
+Tac *Tac::Load(Temp dest, Temp src, int offset) {
+    Tac *t = allocateNewTac(Tac::LOAD);
+    t->op0.var = dest;
+    t->op1.var = src;
+    t->op1.offset = offset;
+    return t;
+}
+
+Tac *Tac::Store(Temp dest, Temp src, int offset) {
+    Tac *t = allocateNewTac(Tac::STORE);
+    t->op0.var = dest;
+    t->op1.var = src;
+    t->op1.offset = offset;
     return t;
 }
 
@@ -770,11 +793,23 @@ void Tac::dump(std::ostream &os) {
         os << "    " << op0.var << " <- " << op1.ival;
         break;
 
-    case PARAM:
-        os << "    PARAM  " << op0.var;
+    case LOAD_SYMBOL:
+        os << "    " << op0.var << " <- " << op1.name;
         break;
 
-    case LINK:
+    case LOAD:
+        os << "    " << op0.var << " <- " << op1.offset << "(" << op1.var << ")";
+        break;
+
+    case STORE:
+        os << "    " << op1.offset << "(" << op1.var << ")" << " <- " << op0.var;
+        break;
+
+    case PARAM:
+        os << "    param  " << op0.var;
+        break;
+
+    case BIND:
         os << "    " << op0.var << " <- reg[a" << op1.ival << "]";
         break;
 
