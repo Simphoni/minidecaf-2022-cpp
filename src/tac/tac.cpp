@@ -581,6 +581,14 @@ Tac *Tac::Bind(Temp param, int regnum) {
     t->op1.ival = regnum;
     return t;
 }
+
+Tac *Tac::Alloc(Temp arrayptr, int arraysize) {
+    REQUIRE_I4(arrayptr);
+    Tac *t = allocateNewTac(Tac::ALLOC);
+    t->op0.var = arrayptr;
+    t->op1.ival = arraysize;
+    return t;
+}
 /* Creates a Mark tac.
  *
  * NOTE:
@@ -798,11 +806,13 @@ void Tac::dump(std::ostream &os) {
         break;
 
     case LOAD:
-        os << "    " << op0.var << " <- " << op1.offset << "(" << op1.var << ")";
+        os << "    " << op0.var << " <- " << op1.offset << "(" << op1.var
+           << ")";
         break;
 
     case STORE:
-        os << "    " << op1.offset << "(" << op1.var << ")" << " <- " << op0.var;
+        os << "    " << op1.offset << "(" << op1.var << ")"
+           << " <- " << op0.var;
         break;
 
     case PARAM:
@@ -815,6 +825,10 @@ void Tac::dump(std::ostream &os) {
 
     case CALL:
         os << "    " << op0.var << " <- call " << op1.label;
+        break;
+
+    case ALLOC:
+        os << "    " << op0.var << " <- alloc " << op1.ival;
         break;
 
     default:

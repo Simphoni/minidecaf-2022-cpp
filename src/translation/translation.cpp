@@ -103,6 +103,7 @@ void Translation::visit(ast::AssignExpr *s) {
     s->left->accept(this);
     s->e->accept(this);
     ast::Lvalue *left = s->left;
+    s->ATTR(val) = s->e->ATTR(val);
     if (left->ATTR(lv_kind) == ast::Lvalue::SIMPLE_VAR) {
         ast::VarRef *var = static_cast<ast::VarRef *>(left);
         tr->genAssign(var->ATTR(sym)->getTemp(), s->e->ATTR(val));
@@ -110,7 +111,17 @@ void Translation::visit(ast::AssignExpr *s) {
             tr->genStore(var->ATTR(sym)->getTemp(), tr->genLoadSymbol(var->var),
                          0);
         }
-        s->ATTR(val) = var->ATTR(sym)->getTemp();
+    } else { // array element
+        ast::ArrayRef *var = static_cast<ast::ArrayRef *>(left);
+        if (var->ATTR(sym)->isGlobalVar()) {
+            Temp baseptr = tr->genLoadSymbol(var->var);
+            Temp ptr = tr->genAdd(baseptr, var->index->ATTR(offset));
+            tr->genStore(s->ATTR(val), ptr, 0);
+        } else {
+            Temp ptr =
+                tr->genAdd(var->ATTR(sym)->getTemp(), var->index->ATTR(offset));
+            tr->genStore(s->ATTR(val), ptr, 0);
+        }
     }
 }
 
@@ -371,6 +382,18 @@ void Translation::visit(ast::LvalueExpr *e) {
                         0);
         }
         e->ATTR(val) = var->ATTR(sym)->getTemp();
+    } else {
+        ast::ArrayRef *var = static_cast<ast::ArrayRef *>(lv);
+        e->ATTR(val) = tr->getNewTempI4();
+        if (var->ATTR(sym)->isGlobalVar()) {
+            Temp baseptr = tr->genLoadSymbol(var->var);
+            Temp ptr = tr->genAdd(baseptr, var->index->ATTR(offset));
+            tr->genLoad(e->ATTR(val), ptr, 0);
+        } else {
+            Temp ptr =
+                tr->genAdd(var->ATTR(sym)->getTemp(), var->index->ATTR(offset));
+            tr->genLoad(e->ATTR(val), ptr, 0);
+        }
     }
 }
 
@@ -392,16 +415,47 @@ void Translation::visit(ast::VarRef *ref) {
     // actually it is so simple :-)
 }
 
+void Translation::visit(ast::ArrayIndex *idx) {
+    if (idx->lower != NULL)
+        idx->lower->accept(this);
+    idx->offset->accept(this);
+    ArrayType *at = static_cast<ArrayType *>(idx->ATTR(dim));
+    Temp newdim = tr->genLoadImm4(at->getElementType()->getSize());
+    if (idx->lower != NULL)
+        idx->ATTR(offset) =
+            tr->genAdd(tr->genMul(idx->offset->ATTR(val), newdim),
+                       idx->lower->ATTR(offset));
+    else
+        idx->ATTR(offset) = tr->genMul(idx->offset->ATTR(val), newdim);
+}
+
+void Translation::visit(ast::ArrayRef *ref) {
+    ref->index->accept(this);
+    switch (ref->ATTR(lv_kind)) {
+    case ast::Lvalue::ARRAY_ELE:
+        break;
+    default:
+        mind_assert(false);
+    }
+}
+
 /* Translating an ast::VarDecl node.
  */
 void Translation::visit(ast::VarDecl *decl) {
     // TODO
-    decl->ATTR(sym)->attachTemp(tr->getNewTempI4());
-    // the `init` Expr is allowed to use the newly-declared symbol
-    if (decl->init != NULL)
-        decl->init->accept(this);
-    if (decl->init != NULL)
-        tr->genAssign(decl->ATTR(sym)->getTemp(), decl->init->ATTR(val));
+    if (decl->type->ATTR(type)->isBaseType()) {
+        decl->ATTR(sym)->attachTemp(tr->getNewTempI4());
+        // the `init` Expr is allowed to use the newly-declared symbol
+        if (decl->init != NULL) {
+            decl->init->accept(this);
+            tr->genAssign(decl->ATTR(sym)->getTemp(), decl->init->ATTR(val));
+        }
+    } else { // malloc array
+        ArrayType *t = (ArrayType *)decl->type->ATTR(type);
+        // the array is represented by a pointer
+        if (!decl->ATTR(sym)->isGlobalVar())
+            decl->ATTR(sym)->attachTemp(tr->genAlloc(t->getSize()));
+    }
 }
 
 void Translation::visit(ast::IfExpr *e) {

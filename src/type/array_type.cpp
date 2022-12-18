@@ -1,7 +1,7 @@
 /*****************************************************
  *  Implementation of the "ArrayType" class.
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #include "config.hpp"
@@ -82,4 +82,20 @@ bool ArrayType::equal(Type *t) {
  * PARAMETERS:
  *   os    - the output stream
  */
-void ArrayType::dump(std::ostream &os) { os << element_type << "[]"; }
+void ArrayType::dump(std::ostream &os) {
+    // NOTICE: this cause the lowest dim to be presented at the front
+    os << element_type << "[" << length << "]";
+}
+
+void ArrayType::setBaseType(Type *t) {
+    if (!element_type->isArrayType())
+        element_type = t;
+    else
+        static_cast<ArrayType *>(element_type)->setBaseType(t);
+}
+Type *ArrayType::getBaseType() {
+    if (!element_type->isArrayType())
+        return element_type;
+    else
+        return static_cast<ArrayType *>(element_type)->getBaseType();
+}

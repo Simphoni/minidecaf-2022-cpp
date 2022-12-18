@@ -50,6 +50,8 @@ class SemPass2 : public ast::Visitor {
     virtual void visit(ast::BitNotExpr *);
     virtual void visit(ast::LvalueExpr *);
     virtual void visit(ast::VarRef *);
+    virtual void visit(ast::ArrayRef *);
+    virtual void visit(ast::ArrayIndex *);
     virtual void visit(ast::IfExpr *);
     virtual void visit(ast::CallExpr *);
     // Visiting statements
@@ -285,15 +287,64 @@ void SemPass2::visit(ast::VarRef *ref) {
     } else {
         ref->ATTR(type) = v->getType();
         ref->ATTR(sym) = (Variable *)v;
-
-        if (((Variable *)v)->isLocalVar()) {
-            ref->ATTR(lv_kind) = ast::Lvalue::SIMPLE_VAR;
-        }
+        ref->ATTR(lv_kind) = ast::Lvalue::SIMPLE_VAR;
     }
 
     return;
 
     // sometimes "GOTO" will make things simpler. this is one of such cases:
+issue_error_type:
+    ref->ATTR(type) = BaseType::Error;
+    ref->ATTR(sym) = NULL;
+    return;
+}
+
+void SemPass2::visit(ast::ArrayIndex *a) {
+    a->offset->accept(this);
+    if (!a->ATTR(dim)->isArrayType()) {
+        issue(a->getLocation(), new NotArrayError());
+        return;
+    }
+    ArrayType *p = static_cast<ArrayType *>(a->ATTR(dim));
+    if (a->lower == NULL) { // lowest dim
+        if (!p->getElementType()->isBaseType())
+            issue(a->getLocation(), new NotArrayError());
+        return;
+    } else {
+        a->lower->ATTR(dim) = p->getElementType();
+        a->lower->accept(this);
+    }
+}
+
+void SemPass2::visit(ast::ArrayRef *ref) {
+    // CASE I: owner is NULL ==> referencing a local var or a member var?
+    Symbol *v = scopes->lookup(ref->var, ref->getLocation());
+    if (NULL == v) {
+        issue(ref->getLocation(), new SymbolNotFoundError(ref->var));
+        goto issue_error_type;
+    } else if (!v->isVariable()) {
+        issue(ref->getLocation(), new NotVariableError(v));
+        goto issue_error_type;
+    } else {
+        Type *t = v->getType();
+        if (!t->isArrayType()) {
+            issue(ref->getLocation(),
+                  new IncompatibleError(t, BaseType::Error));
+            goto issue_error_type;
+        }
+        ref->ATTR(type) = static_cast<ArrayType *>(t)->getBaseType();
+        ref->ATTR(sym) = (Variable *)v;
+        ref->ATTR(lv_kind) = ast::Lvalue::ARRAY_ELE;
+
+        if (ref->index == NULL) {
+            issue(ref->getLocation(), new NotArrayError());
+            goto issue_error_type;
+        }
+        ref->index->ATTR(dim) = t;
+        ref->index->accept(this);
+    }
+    return;
+
 issue_error_type:
     ref->ATTR(type) = BaseType::Error;
     ref->ATTR(sym) = NULL;

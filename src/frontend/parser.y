@@ -24,6 +24,7 @@
 %code requires{
 #include "config.hpp"
 #include "ast/ast.hpp"
+#include "type/type.hpp"
 #include "location.hpp"
 #include "parser.hpp"
 
@@ -99,6 +100,8 @@ void scan_end();
 %nterm<mind::ast::Statement*> BlockItem DeclStmt DoWhileStmt ForStmt
 %nterm<mind::ast::Expr*> Expr
 %nterm<mind::ast::ExprList*> ExprList ExprListRecurse
+%nterm<mind::type::Type*> ArrayDim
+%nterm<mind::ast::ArrayIndex*> ArrayIndex
 /*   SUBSECTION 2.2: associativeness & precedences */
 %nonassoc QUESTION
 %left     OR
@@ -184,17 +187,29 @@ Stmt        : ReturnStmt  {$$ = $1;}|
               DoWhileStmt {$$ = $1;}|
               ForStmt     {$$ = $1;}|
               BREAK SEMICOLON  
-                {$$ = new ast::BreakStmt(POS(@1));} |
+                { $$ = new ast::BreakStmt(POS(@1)); } |
               CONTINUE SEMICOLON  
-                {$$ = new ast::ContStmt(POS(@1));} |
+                { $$ = new ast::ContStmt(POS(@1)); } |
               SEMICOLON
-                {$$ = new ast::EmptyStmt(POS(@1));}
+                { $$ = new ast::EmptyStmt(POS(@1)); }
+            ;
+ArrayDim :
+              { $$ = type::BaseType::Int; } |
+            LBRACK ICONST RBRACK ArrayDim
+              { $$ = new type::ArrayType($4, $2); }
+            ;
+ArrayIndex: LBRACK Expr RBRACK
+              { $$ = new ast::ArrayIndex(NULL, $2, POS(@1)); } |
+            LBRACK Expr RBRACK ArrayIndex
+              { $$ = new ast::ArrayIndex($4, $2, POS(@1)); }
             ;
 DeclStmt    :
               Type IDENTIFIER SEMICOLON
                 { $$ = new ast::VarDecl($2, $1, POS(@2)); } |
               Type IDENTIFIER ASSIGN Expr SEMICOLON
-                { $$ = new ast::VarDecl($2, $1, $4, POS(@2)); }
+                { $$ = new ast::VarDecl($2, $1, $4, POS(@2)); } |
+              Type IDENTIFIER ArrayDim SEMICOLON // an inextensible method
+                { $$ = new ast::VarDecl($2, new ast::ArrayType($3, $1, POS(@1)), POS(@2)); }
             ;
 CompStmt    : LBRACE StmtList RBRACE
                 {$$ = new ast::CompStmt($2,POS(@1));}
@@ -249,6 +264,10 @@ Expr        : ICONST
                 { $$ = new ast::LvalueExpr(new ast::VarRef($1, POS(@1)), POS(@1)); }
             | IDENTIFIER ASSIGN Expr
                 { $$ = new ast::AssignExpr(new ast::VarRef($1, POS(@1)), $3, POS(@2)); }
+            | IDENTIFIER ArrayIndex
+                { $$ = new ast::LvalueExpr(new ast::ArrayRef($1, $2, POS(@1)), POS(@1)); }
+            | IDENTIFIER ArrayIndex ASSIGN Expr
+                { $$ = new ast::AssignExpr(new ast::ArrayRef($1, $2, POS(@1)), $4, POS(@2)); }
             | Expr QUESTION Expr COLON Expr
                 { $$ = new ast::IfExpr($1,$3,$5,POS(@2)); }
             | Expr PLUS Expr

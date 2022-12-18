@@ -112,6 +112,7 @@ OffsetCounter *RiscvDesc::getOffsetCounter(void) { return _counter; }
  */
 void RiscvDesc::emitPieces(scope::GlobalScope *gscope, Piece *ps,
                            std::ostream &os) {
+    char buf[BUFF_SIZE];
 
     _result = &os;
     // output to .data and .bss segment
@@ -125,14 +126,21 @@ void RiscvDesc::emitPieces(scope::GlobalScope *gscope, Piece *ps,
              it != gscope->end(); ++it)
             if ((*it)->isVariable()) {
                 symb::Variable *v = static_cast<symb::Variable *>(*it);
-                if (v->getGlobalInit() == 0) {
-                    char *s = new char[BUFF_SIZE];
-                    sprintf(s, ".globl %s", v->getName().c_str());
-                    emit(EMPTY_STR, s, NULL);
-                    sprintf(s, "%s:", v->getName().c_str());
-                    emit(EMPTY_STR, s, NULL);
-                    emit(EMPTY_STR, "    .space 4", NULL);
-                    delete[] s;
+                if (v->getType()->isBaseType()) {
+                    if (v->getGlobalInit() == 0) {
+                        sprintf(buf, ".globl %s", v->getName().c_str());
+                        emit(EMPTY_STR, buf, NULL);
+                        sprintf(buf, "%s:", v->getName().c_str());
+                        emit(EMPTY_STR, buf, NULL);
+                        emit(EMPTY_STR, "    .space 4", NULL);
+                    }
+                } else {
+                    sprintf(buf, ".globl %s", v->getName().c_str());
+                    emit(EMPTY_STR, buf, NULL);
+                    sprintf(buf, "%s:", v->getName().c_str());
+                    emit(EMPTY_STR, buf, NULL);
+                    sprintf(buf, "    .space %d", v->getType()->getSize());
+                    emit(EMPTY_STR, buf, NULL);
                 }
             }
         // data segment
@@ -142,14 +150,12 @@ void RiscvDesc::emitPieces(scope::GlobalScope *gscope, Piece *ps,
             if ((*it)->isVariable()) {
                 symb::Variable *v = static_cast<symb::Variable *>(*it);
                 if (v->getGlobalInit()) {
-                    char *s = new char[BUFF_SIZE];
-                    sprintf(s, ".globl %s", v->getName().c_str());
-                    emit(EMPTY_STR, s, NULL);
-                    sprintf(s, "%s:", v->getName().c_str());
-                    emit(EMPTY_STR, s, NULL);
-                    sprintf(s, "    .word %d", v->getGlobalInit());
-                    emit(EMPTY_STR, s, NULL);
-                    delete[] s;
+                    sprintf(buf, ".globl %s", v->getName().c_str());
+                    emit(EMPTY_STR, buf, NULL);
+                    sprintf(buf, "%s:", v->getName().c_str());
+                    emit(EMPTY_STR, buf, NULL);
+                    sprintf(buf, "    .word %d", v->getGlobalInit());
+                    emit(EMPTY_STR, buf, NULL);
                 }
             }
         // text segment
@@ -355,9 +361,21 @@ void RiscvDesc::emitTac(Tac *t) {
         emitCallTac(t);
         break;
 
+    case Tac::ALLOC:
+        emitAllocTac(t);
+        break;
+
     default:
         mind_assert(false); // should not appear inside a basic block
     }
+}
+
+void RiscvDesc::emitAllocTac(Tac *t) {
+    addInstr(RiscvInstr::ADDI, _reg[RiscvReg::SP], _reg[RiscvReg::SP], NULL,
+             -t->op1.ival, EMPTY_STR, NULL);
+    int r0 = getRegForWrite(t->op0.var, 0, 0, t->LiveOut);
+    addInstr(RiscvInstr::MOVE, _reg[r0], _reg[RiscvReg::SP], NULL, 0, EMPTY_STR,
+             NULL);
 }
 
 void RiscvDesc::emitLoadSymbolTac(Tac *t) {
@@ -712,6 +730,10 @@ void RiscvDesc::emitInstr(RiscvInstr *i) {
 
     case RiscvInstr::CALL:
         oss << "call " << i->l;
+        break;
+
+    case RiscvInstr::ADDI:
+        oss << "addi " << i->r0->name << ", " << i->r1->name << ", " << i->i;
         break;
 
     case RiscvInstr::PUSH:

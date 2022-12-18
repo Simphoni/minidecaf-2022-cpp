@@ -59,6 +59,11 @@ class Visitor {
     virtual void visit(BoolType *) {}
     virtual void visit(IntType *) {}
 
+    // Arrays
+    virtual void visit(ArrayType *) {}
+    virtual void visit(ArrayIndex *) {}
+    virtual void visit(ArrayRef *) {}
+
     // Statements
     virtual void visit(ExprStmt *) {}
     virtual void visit(CompStmt *) {}

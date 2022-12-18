@@ -43,6 +43,7 @@ class SemPass1 : public ast::Visitor {
     virtual void visit(ast::VarDecl *);
     // visiting types
     virtual void visit(ast::IntType *);
+    virtual void visit(ast::ArrayType *);
 };
 
 /* Visiting an ast::Program node.
@@ -226,7 +227,9 @@ void SemPass1::visit(ast::VarDecl *vdecl) {
         vdecl->ATTR(sym) = v;
         if (vdecl->init != NULL) {
             vdecl->init->accept(this);
-            if (vdecl->ATTR(sym)->isGlobalVar()) {
+        }
+        if (vdecl->ATTR(sym)->isGlobalVar()) {
+            if (vdecl->init != NULL) {
                 // only support initiating with constant
                 if (vdecl->init->getKind() == ast::ASTNode::INT_CONST)
                     vdecl->ATTR(sym)->setGlobalInit(
@@ -238,9 +241,9 @@ void SemPass1::visit(ast::VarDecl *vdecl) {
                             __FILE__, __LINE__);
                     throw;
                 }
+            } else {
+                vdecl->ATTR(sym)->setGlobalInit(0); // default to zero
             }
-        } else if (vdecl->ATTR(sym)->isGlobalVar()) {
-            vdecl->ATTR(sym)->setGlobalInit(0); // default to zero
         }
     }
 }
@@ -251,6 +254,15 @@ void SemPass1::visit(ast::VarDecl *vdecl) {
  *   itype - the ast::IntType node to visit
  */
 void SemPass1::visit(ast::IntType *itype) { itype->ATTR(type) = BaseType::Int; }
+
+void SemPass1::visit(ast::ArrayType *arrtype) {
+    arrtype->base->accept(this);
+    static_cast<type::ArrayType *>(arrtype->ATTR(type))
+        ->setBaseType(arrtype->base->ATTR(type));
+    if (arrtype->ATTR(type)->getSize() == 0) {
+        issue(arrtype->getLocation(), new ZeroLengthedArrayError());
+    }
+}
 
 /* Builds the symbol tables for the Mind compiler.
  *

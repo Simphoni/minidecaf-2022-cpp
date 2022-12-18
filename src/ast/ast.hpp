@@ -69,6 +69,9 @@ class ASTNode {
         VAR_REF,
         WHILE_STMT,
         FOD,
+        ARRAY_TYPE,
+        ARRAY_REF,
+        ARRAY_INDEX,
     } NodeType;
 
   protected:
@@ -421,6 +424,45 @@ class VarRef : public Lvalue {
   public:
     Expr *owner; // only to pass compilation, not used
     std::string var;
+
+    symb::Variable *ATTR(sym); // for tac generation
+};
+
+class ArrayType : public Type {
+  public:
+    ArrayType(type::Type *t, ast::Type *base, Location *l);
+
+    virtual void accept(Visitor *);
+    virtual void dumpTo(std::ostream &);
+
+  public:
+    ast::Type *base;
+};
+
+class ArrayIndex : public ASTNode {
+  public:
+    ArrayIndex(ArrayIndex *lo, Expr *e, Location *l);
+    virtual void accept(Visitor *);
+    virtual void dumpTo(std::ostream &);
+
+  public:
+    ArrayIndex *lower;
+    type::Type *ATTR(dim); // needed for generating entire offset
+    Expr *offset;
+    tac::Temp ATTR(offset);
+};
+
+class ArrayRef : public Lvalue {
+  public:
+    ArrayRef(std::string n, ArrayIndex *idx, Location *l);
+
+    virtual void accept(Visitor *);
+    virtual void dumpTo(std::ostream &);
+
+  public:
+    Expr *owner; // only to pass compilation, not used
+    std::string var;
+    ArrayIndex *index;
 
     symb::Variable *ATTR(sym); // for tac generation
 };

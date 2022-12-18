@@ -469,6 +469,12 @@ void TransHelper::genStore(Temp c, Temp a, int offset) {
     chainUp(Tac::Store(c, a, offset));
 }
 
+Temp TransHelper::genAlloc(int arraysize) {
+    Temp c = getNewTempI4();
+    chainUp(Tac::Alloc(c, arraysize));
+    return c;
+}
+
 /* Appends an Assign tac node to the current list.
  *
  * PARAMETERS:

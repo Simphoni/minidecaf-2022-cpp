@@ -6,7 +6,7 @@
  *    2. ArrayType: representing the types of arrays
  *    3. FuncType:  representing the types of functions
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #ifndef __MIND_TYPE__
@@ -112,6 +112,8 @@ class ArrayType : public Type {
     virtual bool equal(Type *);
     // Prints this type object
     virtual void dump(std::ostream &);
+    void setBaseType(Type *);
+    Type *getBaseType();
 };
 
 /* The function type signature.
