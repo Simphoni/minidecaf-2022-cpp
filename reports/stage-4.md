@@ -56,9 +56,9 @@ void Translation::visit(ast::CallExpr *e) {
 }
 ```
 
-为了在函数调用开头将物理寄存器与虚拟寄存器绑定起来，我额外增加了三地址码`BindRegToTemp`，它不生成汇编代码，仅将物理寄存器附上对应的虚拟寄存器。
+为了在函数调用开头将物理寄存器与虚拟寄存器绑定起来，我额外增加了三地址码`BindRegToTemp`，它不生成汇编代码，仅在函数开始时将物理寄存器附上对应的虚拟寄存器。
 
-对于新增加的`TAC`指令，也需要相应的修改`dataflow`中`Live`集合的计算，这部分较为简单。
+对于新增加的`TAC`指令，也需要相应的修改`dataflow`中`Live`集合的计算。以`CALL` 例，它将函数返回值赋给新定义的`Temp`，因此这个新的`Temp`需要`updateDEF`。在计算每条`TAC`的`LiveOut`时，框架已知每个基本块最后一条指令的`LiveOut`，通过从后往前计算每个`TAC`的`LiveOut`。每个`Temp`在基本块中必定经历一次定义和多次使用（定义也可能在前一个基本块中），它从定义到最后一次使用期间是活跃的。因此若某条指令的后继是一条`CALL`指令，那么该指令的`LiveOut`相对于`CALL`指令的`LiveOut`要少一个`CALL`的返回值`Temp`，可以通过`remove`操作来完成。
 
 #### 后端
 
@@ -98,7 +98,7 @@ void Translation::visit(ast::CallExpr *e) {
 
 #### 前端
 
-修改`parser`，允许`FOD`中存在`DeclStmt`
+修改`parser`，允许`FOD`中存在`DeclStmt`。
 
 #### 中端
 
@@ -106,7 +106,7 @@ void Translation::visit(ast::CallExpr *e) {
 
 添加了三地址码`LOAD_SYMBOL`,`LOAD`和`STORE`，具体设计与实验指导书一致。
 
-在`translation`阶段访问`AssignExpr`时，若左侧值是全局变量，则生成`LOAD_SYMBOL`和`STORE` 三地址码，将结果迅速保存到内存中；在访问`LvalueExpr`时，若符号是全局变量，则生成三地址码将数据从内存 `LOAD` 到符号绑定的临时变量中。
+在`translation`阶段访问`AssignExpr`时，若左侧值是全局变量，则生成`LOAD_SYMBOL`和`STORE` 三地址码，将结果保存到内存中；在访问`LvalueExpr`时，若符号是全局变量，则生成三地址码将数据从内存 `LOAD` 到符号绑定的临时变量中。
 
 对于新增加的`TAC`指令，也需要相应的修改`dataflow`中`Live`集合的计算，这部分较为简单。
 
