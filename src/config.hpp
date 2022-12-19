@@ -38,7 +38,7 @@ std::ostream &operator<<(std::ostream &, ast::FuncList *);
 std::ostream &operator<<(std::ostream &, ast::VarList *);
 std::ostream &operator<<(std::ostream &, ast::StmtList *);
 std::ostream &operator<<(std::ostream &, ast::ExprList *);
-std::ostream &operator<<(std::ostream &, ast::DimList *);
+std::ostream &operator<<(std::ostream &, ast::Initializer *);
 std::ostream &operator<<(std::ostream &, ast::FuncOrGlobalList *);
 std::ostream &operator<<(std::ostream &, type::Type *);
 std::ostream &operator<<(std::ostream &, scope::Scope *);

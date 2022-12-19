@@ -357,8 +357,11 @@ issue_error_type:
  *   decl     - the ast::VarDecl node
  */
 void SemPass2::visit(ast::VarDecl *decl) {
-    if (decl->init)
+    if (decl->init) {
         decl->init->accept(this);
+    } else if (decl->arrayinit && !decl->type->ATTR(type)->isArrayType()) {
+        issue(decl->getLocation(), new NotArrayError());
+    }
 }
 
 /* Visits an ast::AssignStmt node.

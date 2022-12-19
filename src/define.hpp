@@ -4,7 +4,7 @@
  *  This file is used to resolve the "cyclic reference"
  *  dilemma in C++.
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #ifndef __MIND_DEFINE__
@@ -101,7 +101,7 @@ class GrtExpr;
 // the lists are not ASTNode
 typedef util::List<FuncDefn *> FuncList;        // list of Function
 typedef util::List<VarDecl *> VarList;          // list of VarDecl
-typedef util::List<int> DimList;                // list of VarDecl
+typedef util::List<int> Initializer;            // list of Array initializer
 typedef util::List<Statement *> StmtList;       // list of Statement
 typedef util::List<Expr *> ExprList;            // list of Expr
 typedef util::List<ASTNode *> FuncOrGlobalList; // list of Expr

@@ -227,12 +227,12 @@ std::ostream &mind::operator<<(std::ostream &os, ExprList *l) {
 
     return os;
 }
-std::ostream &mind::operator<<(std::ostream &os, DimList *l) {
+std::ostream &mind::operator<<(std::ostream &os, Initializer *l) {
     os << "[";
     if (!l->empty()) {
         incIndent(os);
         os << " ";
-        DimList::iterator it = l->begin();
+        Initializer::iterator it = l->begin();
         os << *it;
         while (++it != l->end()) {
             newLine(os);

@@ -106,10 +106,10 @@ void Translation::visit(ast::AssignExpr *s) {
     s->ATTR(val) = s->e->ATTR(val);
     if (left->ATTR(lv_kind) == ast::Lvalue::SIMPLE_VAR) {
         ast::VarRef *var = static_cast<ast::VarRef *>(left);
-        tr->genAssign(var->ATTR(sym)->getTemp(), s->e->ATTR(val));
         if (var->ATTR(sym)->isGlobalVar()) {
-            tr->genStore(var->ATTR(sym)->getTemp(), tr->genLoadSymbol(var->var),
-                         0);
+            tr->genStore(s->e->ATTR(val), tr->genLoadSymbol(var->var), 0);
+        } else {
+            tr->genAssign(var->ATTR(sym)->getTemp(), s->e->ATTR(val));
         }
     } else { // array element
         ast::ArrayRef *var = static_cast<ast::ArrayRef *>(left);
@@ -376,13 +376,20 @@ void Translation::visit(ast::LvalueExpr *e) {
     e->lvalue->accept(this);
     ast::Lvalue *lv = e->lvalue;
     if (lv->ATTR(lv_kind) == ast::Lvalue::SIMPLE_VAR) {
-        ast::VarRef *var = static_cast<ast::VarRef *>(lv);
+        // a variable or ptr of an array
+        ast::VarRef *var = dynamic_cast<ast::VarRef *>(lv);
         if (var->ATTR(sym)->isGlobalVar()) {
-            tr->genLoad(var->ATTR(sym)->getTemp(), tr->genLoadSymbol(var->var),
-                        0);
+            if (var->ATTR(type)->isBaseType()) {
+                e->ATTR(val) = tr->getNewTempI4();
+                tr->genLoad(e->ATTR(val), tr->genLoadSymbol(var->var), 0);
+            } else {
+                e->ATTR(val) = tr->genLoadSymbol(var->var);
+            }
+        } else {
+            e->ATTR(val) = var->ATTR(sym)->getTemp();
         }
-        e->ATTR(val) = var->ATTR(sym)->getTemp();
     } else {
+        // an array element
         ast::ArrayRef *var = static_cast<ast::ArrayRef *>(lv);
         e->ATTR(val) = tr->getNewTempI4();
         if (var->ATTR(sym)->isGlobalVar()) {
@@ -443,6 +450,8 @@ void Translation::visit(ast::ArrayRef *ref) {
  */
 void Translation::visit(ast::VarDecl *decl) {
     // TODO
+    if (decl->ATTR(sym)->isGlobalVar())
+        return;
     if (decl->type->ATTR(type)->isBaseType()) {
         decl->ATTR(sym)->attachTemp(tr->getNewTempI4());
         // the `init` Expr is allowed to use the newly-declared symbol
@@ -453,8 +462,22 @@ void Translation::visit(ast::VarDecl *decl) {
     } else { // malloc array
         ArrayType *t = (ArrayType *)decl->type->ATTR(type);
         // the array is represented by a pointer
-        if (!decl->ATTR(sym)->isGlobalVar())
-            decl->ATTR(sym)->attachTemp(tr->genAlloc(t->getSize()));
+        Temp baseptr = tr->genAlloc(t->getSize());
+        decl->ATTR(sym)->attachTemp(baseptr);
+        if (decl->arrayinit != NULL) {
+            tr->genParam(baseptr, 0);
+            tr->genParam(tr->genLoadImm4(0), 1);
+            tr->genParam(tr->genLoadImm4(t->getSize() / 4), 2);
+            Label dst = tr->getNewLabel();
+            dst->str_form = std::string("fill_n");
+            tr->genCall(dst);
+            int offset = 0;
+            for (auto it = decl->arrayinit->begin();
+                 it != decl->arrayinit->end(); it++) {
+                tr->genStore(tr->genLoadImm4(*it), baseptr, offset);
+                offset += 4;
+            }
+        }
     }
 }
 

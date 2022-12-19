@@ -126,14 +126,14 @@ void RiscvDesc::emitPieces(scope::GlobalScope *gscope, Piece *ps,
              it != gscope->end(); ++it)
             if ((*it)->isVariable()) {
                 symb::Variable *v = static_cast<symb::Variable *>(*it);
+                if (v->getGlobalInit())
+                    continue;
                 if (v->getType()->isBaseType()) {
-                    if (v->getGlobalInit() == 0) {
-                        sprintf(buf, ".globl %s", v->getName().c_str());
-                        emit(EMPTY_STR, buf, NULL);
-                        sprintf(buf, "%s:", v->getName().c_str());
-                        emit(EMPTY_STR, buf, NULL);
-                        emit(EMPTY_STR, "    .space 4", NULL);
-                    }
+                    sprintf(buf, ".globl %s", v->getName().c_str());
+                    emit(EMPTY_STR, buf, NULL);
+                    sprintf(buf, "%s:", v->getName().c_str());
+                    emit(EMPTY_STR, buf, NULL);
+                    emit(EMPTY_STR, "    .space 4", NULL);
                 } else {
                     sprintf(buf, ".globl %s", v->getName().c_str());
                     emit(EMPTY_STR, buf, NULL);
@@ -149,13 +149,28 @@ void RiscvDesc::emitPieces(scope::GlobalScope *gscope, Piece *ps,
              it != gscope->end(); ++it)
             if ((*it)->isVariable()) {
                 symb::Variable *v = static_cast<symb::Variable *>(*it);
-                if (v->getGlobalInit()) {
+                if (!v->getGlobalInit())
+                    continue;
+                if (v->getType()->isBaseType()) {
                     sprintf(buf, ".globl %s", v->getName().c_str());
                     emit(EMPTY_STR, buf, NULL);
                     sprintf(buf, "%s:", v->getName().c_str());
                     emit(EMPTY_STR, buf, NULL);
                     sprintf(buf, "    .word %d", v->getGlobalInit());
                     emit(EMPTY_STR, buf, NULL);
+                } else {
+                    sprintf(buf, ".globl %s", v->getName().c_str());
+                    emit(EMPTY_STR, buf, NULL);
+                    sprintf(buf, "%s:", v->getName().c_str());
+                    emit(EMPTY_STR, buf, NULL);
+                    auto p = v->getGlobalArrInit();
+                    for (auto it = p->begin(); it != p->end(); it++) {
+                        sprintf(buf, "    .word %d", *it);
+                        emit(EMPTY_STR, buf, NULL);
+                    }
+                    sprintf(buf, "    .word 0");
+                    for (int i = p->length(); i < v->getType()->getSize(); i++)
+                        emit(EMPTY_STR, buf, NULL);
                 }
             }
         // text segment

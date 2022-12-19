@@ -3,7 +3,7 @@
  *
  *  Please refer to ast/ast.hpp for the definition.
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #include "ast/ast.hpp"
@@ -37,6 +37,14 @@ VarDecl::VarDecl(std::string n, Type *t, Expr *i, Location *l) {
     init = i;
 }
 
+VarDecl::VarDecl(std::string n, Type *t, Initializer *i, Location *l) {
+    setBasicInfo(VAR_DECL, l);
+
+    name = n;
+    type = t;
+    arrayinit = i;
+}
+
 VarDecl::VarDecl(std::string n, Type *t, int d, Location *l) {
 
     setBasicInfo(VAR_DECL, l);
@@ -61,7 +69,12 @@ void VarDecl::accept(Visitor *v) { v->visit(this); }
 void VarDecl::dumpTo(std::ostream &os) {
     ASTNode::dumpTo(os);
     if (init == NULL) {
-        os << " " << '"' << name << '"' << " " << type << ")";
+        if (arrayinit != NULL) {
+            os << " " << '"' << name << '"' << " " << type << "=";
+            newLine(os);
+            os << arrayinit << ")";
+        } else
+            os << " " << '"' << name << '"' << " " << type << ")";
     } else {
         os << " " << '"' << name << '"' << " " << type << "=";
         newLine(os);

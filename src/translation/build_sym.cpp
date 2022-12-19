@@ -225,14 +225,14 @@ void SemPass1::visit(ast::VarDecl *vdecl) {
     else {
         scopes->declare(v);
         vdecl->ATTR(sym) = v;
-        if (vdecl->init != NULL) {
+        if (vdecl->init != NULL)
             vdecl->init->accept(this);
-        }
-        if (vdecl->ATTR(sym)->isGlobalVar()) {
+        if (t->isBaseType() && v->isGlobalVar()) {
+            // is global + no bracks -> can't be an array
             if (vdecl->init != NULL) {
                 // only support initiating with constant
                 if (vdecl->init->getKind() == ast::ASTNode::INT_CONST)
-                    vdecl->ATTR(sym)->setGlobalInit(
+                    v->setGlobalInit(
                         dynamic_cast<ast::IntConst *>(vdecl->init)->value);
                 else {
                     fprintf(stderr,
@@ -242,7 +242,22 @@ void SemPass1::visit(ast::VarDecl *vdecl) {
                     throw;
                 }
             } else {
-                vdecl->ATTR(sym)->setGlobalInit(0); // default to zero
+                v->setGlobalInit(0); // default to zero
+            }
+        }
+        if (t->isArrayType() && v->isGlobalVar()) {
+            if (vdecl->arrayinit != NULL) {
+                int exi = 0;
+                for (auto it = vdecl->arrayinit->begin();
+                     it != vdecl->arrayinit->end(); it++)
+                    if (*it) {
+                        exi = 1;
+                        break;
+                    }
+                v->setGlobalInit(exi);
+                v->setGlobalArrInit(vdecl->arrayinit);
+            } else {
+                v->setGlobalInit(0);
             }
         }
     }

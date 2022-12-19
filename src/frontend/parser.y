@@ -102,6 +102,7 @@ void scan_end();
 %nterm<mind::ast::ExprList*> ExprList ExprListRecurse
 %nterm<mind::type::Type*> ArrayDim
 %nterm<mind::ast::ArrayIndex*> ArrayIndex
+%nterm<mind::ast::Initializer*> ArrayInit ArrayInitRecurse
 /*   SUBSECTION 2.2: associativeness & precedences */
 %nonassoc QUESTION
 %left     OR
@@ -150,6 +151,20 @@ FormalListRecurse   :   /* EMPTY */
                       { $$ = new ast::VarList(); }
                     | FormalListRecurse Type IDENTIFIER COMMA
                       { $1->append(new ast::VarDecl($3, $2, POS(@3))); $$ = $1; }
+                    | FormalListRecurse Type IDENTIFIER ArrayDim COMMA
+                        { $1->append(new ast::VarDecl($3, new ast::ArrayType($4, $2, POS(@4)), POS(@3))); $$ = $1; }
+                    | FormalListRecurse Type IDENTIFIER LBRACK RBRACK ArrayDim COMMA
+                        { $1->append(new ast::VarDecl($3,
+                                                      new ast::ArrayType(new type::ArrayType($6, 1), $2, POS(@4)),
+                                                      POS(@3)));
+                          $$ = $1;
+                        }
+                    | FormalListRecurse Type IDENTIFIER LBRACK RBRACK COMMA
+                        { $1->append(new ast::VarDecl($3,
+                                                      new ast::ArrayType(new type::ArrayType(type::BaseType::Int, 1), $2, POS(@4)),
+                                                      POS(@3)));
+                          $$ = $1;
+                        }
                     ;
 ExprListRecurse : /* EMPTY */
                     { $$ = new ast::ExprList(); }
@@ -160,7 +175,29 @@ FormalList  :  /* EMPTY */
                 { $$ = new ast::VarList(); }
             | FormalListRecurse Type IDENTIFIER
                 { $1->append(new ast::VarDecl($3, $2, POS(@3))); $$ = $1; }
+            | FormalListRecurse Type IDENTIFIER ArrayDim
+                { $1->append(new ast::VarDecl($3, new ast::ArrayType($4, $2, POS(@4)), POS(@3))); $$ = $1; }
+            | FormalListRecurse Type IDENTIFIER LBRACK RBRACK ArrayDim
+                { $1->append(new ast::VarDecl($3,
+                                              new ast::ArrayType(new type::ArrayType($6, 1), $2, POS(@4)),
+                                              POS(@3)));
+                  $$ = $1;
+                }
+            | FormalListRecurse Type IDENTIFIER LBRACK RBRACK
+                { $1->append(new ast::VarDecl($3,
+                                              new ast::ArrayType(new type::ArrayType(type::BaseType::Int, 1), $2, POS(@4)),
+                                              POS(@3)));
+                  $$ = $1;
+                }
             ;
+ArrayInitRecurse  :
+                      { $$ = new ast::Initializer(); }
+                  | ArrayInitRecurse ICONST COMMA
+                      { $1->append($2); $$ = $1; }
+                  ;
+ArrayInit :       ArrayInitRecurse ICONST
+                      { $1->append($2); $$ = $1; }
+                  ;
 ExprList    :  /* EMPTY */
                 { $$ = new ast::ExprList(); }
             | ExprListRecurse Expr
@@ -193,8 +230,8 @@ Stmt        : ReturnStmt  {$$ = $1;}|
               SEMICOLON
                 { $$ = new ast::EmptyStmt(POS(@1)); }
             ;
-ArrayDim :
-              { $$ = type::BaseType::Int; } |
+ArrayDim :  LBRACK ICONST RBRACK
+              { $$ = new type::ArrayType(type::BaseType::Int, $2); } |
             LBRACK ICONST RBRACK ArrayDim
               { $$ = new type::ArrayType($4, $2); }
             ;
@@ -208,8 +245,10 @@ DeclStmt    :
                 { $$ = new ast::VarDecl($2, $1, POS(@2)); } |
               Type IDENTIFIER ASSIGN Expr SEMICOLON
                 { $$ = new ast::VarDecl($2, $1, $4, POS(@2)); } |
-              Type IDENTIFIER ArrayDim SEMICOLON // an inextensible method
-                { $$ = new ast::VarDecl($2, new ast::ArrayType($3, $1, POS(@1)), POS(@2)); }
+              Type IDENTIFIER ArrayDim SEMICOLON // pass ArrayType & BaseType
+                { $$ = new ast::VarDecl($2, new ast::ArrayType($3, $1, POS(@1)), POS(@2)); } |
+              Type IDENTIFIER ArrayDim ASSIGN LBRACE ArrayInit RBRACE SEMICOLON
+                { $$ = new ast::VarDecl($2, new ast::ArrayType($3, $1, POS(@1)), $6, POS(@2)); }
             ;
 CompStmt    : LBRACE StmtList RBRACE
                 {$$ = new ast::CompStmt($2,POS(@1));}

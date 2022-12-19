@@ -5,7 +5,7 @@
  *    1. Function - representing a function definition
  *    2. Variable - representing a variable
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #ifndef __MIND_SYMBOL__
@@ -77,6 +77,7 @@ class Variable : public Symbol {
     tac::Temp attached;
     // init value for global variable
     int global_init;
+    ast::Initializer *global_arr_init;
 
   public:
     // Constructor
@@ -87,8 +88,10 @@ class Variable : public Symbol {
     bool isParameter(void);
     // Set init value for a global variable
     void setGlobalInit(int val);
+    void setGlobalArrInit(ast::Initializer *init);
     // Get the init value for a global variable
     int getGlobalInit();
+    ast::Initializer *getGlobalArrInit();
     // Tests whether it is a global variable
     bool isGlobalVar(void);
     // Tests whether it is a local variable

@@ -1,7 +1,7 @@
 /*****************************************************
  *  Implementation of "Variable".
  *
- *  Keltin Leung 
+ *  Keltin Leung
  */
 
 #include "config.hpp"
@@ -50,7 +50,11 @@ bool Variable::isParameter(void) { return is_parameter; }
 
 void Variable::setGlobalInit(int val) { global_init = val; }
 
+void Variable::setGlobalArrInit(ast::Initializer *val) { global_arr_init = val; }
+
 int Variable::getGlobalInit() { return global_init; }
+
+ast::Initializer *Variable::getGlobalArrInit() { return global_arr_init; }
 
 /* Tests whether it is a local variable.
  *
